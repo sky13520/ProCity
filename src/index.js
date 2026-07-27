@@ -82,6 +82,20 @@ async function routeApi(request, env, ctx) {
   return json({ error: "API route not found." }, 404);
 }
 
+async function fetchStaticAsset(request, env) {
+  const response = await env.ASSETS.fetch(request);
+  if (response.status !== 404) return response;
+
+  // Cloudflare's repository build can be misconfigured with `--assets .`.
+  // In that case `.assetsignore` publishes only `public/`, but asset paths keep
+  // the `/public` prefix. Fall back to that prefix so production still serves
+  // the same URLs until the dashboard command is corrected.
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/public/")) return response;
+  url.pathname = `/public${url.pathname === "/" ? "/" : url.pathname}`;
+  return env.ASSETS.fetch(new Request(url, request));
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -89,7 +103,7 @@ export default {
       if (url.pathname.startsWith("/api/")) {
         return await routeApi(request, env, ctx);
       }
-      return await env.ASSETS.fetch(request);
+      return await fetchStaticAsset(request, env);
     } catch (error) {
       console.error(JSON.stringify({
         message: "Unhandled Worker request error",
