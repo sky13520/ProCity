@@ -1,0 +1,10 @@
+{
+  "name": "procity-preconstruction-directory",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check app.js && node --check admin/admin.js && node --check functions/api/projects.js && node --check functions/api/admin/projects.js && node --check 'functions/api/admin/projects/[id].js'"
+  }
+}
