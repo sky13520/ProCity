@@ -115,6 +115,23 @@
           </p>
         </div>
 
+        <div class="map-search-panel">
+          <div>
+            <span class="map-search-label">SEARCH THE MAP</span>
+            <div id="place-autocomplete" class="place-autocomplete">
+              <input
+                id="map-location-fallback"
+                type="search"
+                placeholder="Search an address or neighbourhood"
+                aria-label="Search an address or neighbourhood"
+                disabled
+              >
+            </div>
+          </div>
+          <button class="map-action" id="use-location" type="button">Use my location</button>
+          <button class="map-action" id="search-this-area" type="button" disabled>Search this map area</button>
+        </div>
+
         <div class="directory-toolbar">
           <div class="filter-row" id="city-filters" role="group" aria-label="Filter by city">
             <button class="filter-chip active" type="button" data-city="all">All projects</button>
@@ -133,17 +150,29 @@
           </label>
         </div>
 
-        <div class="results-meta">
-          <p><strong id="result-count">8</strong> projects found</p>
-          <button id="clear-filters" type="button">Reset filters</button>
-        </div>
+        <div class="directory-layout">
+          <div class="directory-list">
+            <div class="results-meta">
+              <p><strong id="result-count">0</strong> projects found</p>
+              <button id="clear-filters" type="button">Reset filters</button>
+            </div>
 
-        <div class="property-grid" id="property-grid"></div>
+            <div class="property-grid" id="property-grid" aria-live="polite"></div>
 
-        <div class="empty-state" id="empty-state" hidden>
-          <strong>No projects match your search.</strong>
-          <p>Try another city, project name, or property type.</p>
-          <button class="button button-dark" type="button" id="empty-reset">View all projects</button>
+            <div class="empty-state" id="empty-state" hidden>
+              <strong>No projects match your search.</strong>
+              <p>Try another city, project name, property type, or map area.</p>
+              <button class="button button-dark" type="button" id="empty-reset">View all projects</button>
+            </div>
+          </div>
+          <aside class="map-shell" aria-label="Project map">
+            <div class="map-status" id="map-status">
+              <strong>Interactive GTA map</strong>
+              <span>Connect a Google Maps key to enable map search.</span>
+            </div>
+            <div id="project-map"></div>
+            <button class="map-reset" id="reset-map" type="button" hidden>Show all GTA projects</button>
+          </aside>
         </div>
       </section>
 
@@ -290,6 +319,7 @@
         <a href="#properties">Projects</a>
         <a href="#areas">Neighbourhoods</a>
         <a href="#contact">Contact</a>
+        <a href="/admin/">Admin</a>
       </div>
       <div class="legal">
         <span>© <span id="year"></span> ProCity Realty. All rights reserved.</span>

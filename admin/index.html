@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#151717">
+    <title>Project Admin | ProCity Realty</title>
+    <link rel="stylesheet" href="./admin.css">
+  </head>
+  <body>
+    <header class="admin-header">
+      <a class="admin-brand" href="/">
+        <span>P</span>
+        <div><strong>PROCITY</strong><small>PROJECT ADMIN</small></div>
+      </a>
+      <div class="header-actions">
+        <a href="/" target="_blank" rel="noopener">View website ↗</a>
+        <button id="change-token" type="button">Change access token</button>
+      </div>
+    </header>
+
+    <main class="admin-layout">
+      <aside class="admin-sidebar">
+        <p class="admin-kicker">PROJECT DATABASE</p>
+        <h1>Manage listings.</h1>
+        <p>Add, update, publish, or remove the projects shown on the public directory and Google Map.</p>
+        <button class="primary-action" id="new-project" type="button">+ Add new project</button>
+
+        <div class="admin-summary">
+          <div><strong id="total-projects">0</strong><span>Total projects</span></div>
+          <div><strong id="live-projects">0</strong><span>Published</span></div>
+        </div>
+      </aside>
+
+      <section class="admin-content">
+        <div class="content-head">
+          <div>
+            <p class="admin-kicker">ALL LISTINGS</p>
+            <h2>Projects</h2>
+          </div>
+          <label class="admin-search">
+            <span>Search</span>
+            <input id="admin-search" type="search" placeholder="Project, city, or builder">
+          </label>
+        </div>
+
+        <div class="admin-notice" id="admin-notice" hidden></div>
+        <div class="project-table" id="project-table">
+          <div class="loading-state">Connect your administrator access to load projects.</div>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="editor-dialog" id="editor-dialog">
+      <form id="project-form">
+        <header>
+          <div>
+            <p class="admin-kicker">PROJECT EDITOR</p>
+            <h2 id="editor-title">Add project</h2>
+          </div>
+          <button class="close-editor" type="button" aria-label="Close">×</button>
+        </header>
+        <input type="hidden" name="id">
+
+        <div class="form-grid">
+          <label class="span-2">Project name<input name="title" required></label>
+          <label>City<input name="city" list="city-list" required></label>
+          <label>Neighbourhood<input name="area" required></label>
+          <label class="span-2">Full address<input name="address" required placeholder="123 Yonge St, Toronto, ON"></label>
+          <label>
+            Property type
+            <select name="type">
+              <option>Condo</option>
+              <option>Townhome</option>
+              <option>Detached</option>
+              <option>Semi-Detached</option>
+            </select>
+          </label>
+          <label>Builder<input name="builder"></label>
+          <label>Starting price (CAD)<input name="price" type="number" min="0" step="1000"></label>
+          <label>Occupancy<input name="occupancy" placeholder="2029 or TBD"></label>
+          <label>Badge<input name="badge" placeholder="VIP ACCESS"></label>
+          <label class="span-2">Image URL<input name="image_url" type="url" placeholder="https://..."></label>
+          <label>Latitude<input name="latitude" type="number" min="-90" max="90" step="any" required></label>
+          <label>Longitude<input name="longitude" type="number" min="-180" max="180" step="any" required></label>
+          <p class="coordinate-help span-2">
+            Tip: right-click the project location in Google Maps and copy its latitude and longitude.
+          </p>
+          <label class="span-2">Description<textarea name="description" rows="4"></textarea></label>
+          <label class="check-label"><input name="featured" type="checkbox"> Featured project</label>
+          <label class="check-label"><input name="published" type="checkbox" checked> Published on website</label>
+        </div>
+
+        <footer>
+          <button class="secondary-action close-editor" type="button">Cancel</button>
+          <button class="primary-action" type="submit">Save project</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="token-dialog" id="token-dialog">
+      <form id="token-form">
+        <span class="brand-token">P</span>
+        <p class="admin-kicker">SECURE ACCESS</p>
+        <h2>Project Admin</h2>
+        <p>Enter the administrator token configured in Cloudflare.</p>
+        <label>Administrator token<input id="admin-token" type="password" autocomplete="current-password" required></label>
+        <button class="primary-action" type="submit">Open dashboard</button>
+        <small>The token stays in this browser tab and is never saved in the website code.</small>
+      </form>
+    </dialog>
+
+    <div class="admin-toast" id="admin-toast" role="status"></div>
+    <datalist id="city-list">
+      <option value="Toronto"></option>
+      <option value="Vaughan"></option>
+      <option value="Markham"></option>
+      <option value="Richmond Hill"></option>
+      <option value="Mississauga"></option>
+      <option value="Oakville"></option>
+      <option value="Pickering"></option>
+    </datalist>
+    <script src="./admin.js"></script>
+  </body>
+</html>
