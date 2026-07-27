@@ -302,9 +302,9 @@ img { display: block; max-width: 100%; }
   overflow: hidden;
   background: #e7e4dc;
 }
-#project-map { width: 100%; height: 100%; }
+#project-map { width: 100%; height: 100%; z-index: 1; }
 .map-status {
-  position: absolute; z-index: 2; inset: 0; display: grid; place-content: center; gap: 9px; padding: 35px;
+  position: absolute; z-index: 5; inset: 0; display: grid; place-content: center; gap: 9px; padding: 35px;
   text-align: center; background:
     linear-gradient(rgba(240, 238, 232, .9), rgba(240, 238, 232, .9)),
     repeating-linear-gradient(45deg, #ddd 0 1px, transparent 1px 16px);
@@ -319,14 +319,22 @@ img { display: block; max-width: 100%; }
 }
 .map-marker {
   min-width: 58px; padding: 8px 9px; border: 2px solid white; border-radius: 18px;
-  background: var(--green); color: var(--ink); box-shadow: 0 5px 15px rgba(0,0,0,.22);
+  background: var(--green); color: white; box-shadow: 0 5px 15px rgba(0,0,0,.22);
   font-size: 10px; font-weight: 700; cursor: pointer;
 }
+.map-marker-host { background: transparent; border: 0; }
+.map-shell .leaflet-popup-content-wrapper {
+  border-radius: 2px;
+  box-shadow: 0 12px 35px rgba(16, 33, 25, .2);
+}
+.map-shell .leaflet-popup-content { margin: 14px; }
+.map-shell .leaflet-control-attribution { font-size: 9px; }
+.map-shell .leaflet-control-zoom a { color: var(--dark); }
 .map-popup { min-width: 160px; padding: 3px; display: grid; gap: 5px; font-family: "DM Sans", sans-serif; }
 .map-popup strong { font-size: 14px; }
 .map-popup span { color: var(--muted); font-size: 11px; }
 .map-popup button {
-  margin-top: 6px; padding: 8px 10px; border: 0; background: var(--green); color: var(--ink); font-weight: 600; cursor: pointer;
+  margin-top: 6px; padding: 8px 10px; border: 0; background: var(--accent); color: var(--ink); font-weight: 600; cursor: pointer;
 }
 
 .area-section { padding-top: 30px; }

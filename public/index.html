@@ -10,13 +10,22 @@
     <meta name="theme-color" content="#07c160">
     <title>Toronto Pre-Construction Condos | ProCity Realty</title>
     <link rel="preconnect" href="https://images.unsplash.com">
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    >
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="ProCity Realty home">
         <span class="brand-logo">
-          <img src="./procity-logo.png" alt="ProCity Realty Brokerage">
+          <img
+            src="./procity-logo.png?v=20260727-2"
+            alt="ProCity Realty Brokerage"
+            width="1983"
+            height="793"
+          >
         </span>
       </a>
 
@@ -122,7 +131,6 @@
                 type="search"
                 placeholder="Search an address or neighbourhood"
                 aria-label="Search an address or neighbourhood"
-                disabled
               >
             </div>
           </div>
@@ -165,8 +173,8 @@
           </div>
           <aside class="map-shell" aria-label="Project map">
             <div class="map-status" id="map-status">
-              <strong>Interactive GTA map</strong>
-              <span>Connect a Google Maps key to enable map search.</span>
+              <strong>Loading GTA project map</strong>
+              <span>Project locations will appear here in a moment.</span>
             </div>
             <div id="project-map"></div>
             <button class="map-reset" id="reset-map" type="button" hidden>Show all GTA projects</button>
@@ -310,7 +318,12 @@
     <footer>
       <a class="brand brand-footer" href="#top">
         <span class="brand-logo">
-          <img src="./procity-logo.png" alt="ProCity Realty Brokerage">
+          <img
+            src="./procity-logo.png?v=20260727-2"
+            alt="ProCity Realty Brokerage"
+            width="1983"
+            height="793"
+          >
         </span>
       </a>
       <p>Toronto &amp; GTA pre-construction real estate specialists.</p>
@@ -332,6 +345,7 @@
     </dialog>
 
     <div class="toast" id="toast" role="status"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

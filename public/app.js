@@ -148,6 +148,7 @@ let projects = fallbackProjects;
 let map;
 let infoWindow;
 let markers = [];
+let mapProvider = null;
 
 const grid = document.querySelector("#property-grid");
 const count = document.querySelector("#result-count");
@@ -187,6 +188,15 @@ function projectPosition(project) {
   const lat = Number(project.latitude);
   const lng = Number(project.longitude);
   return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+function setMapView(position, zoom) {
+  if (!map) return;
+  if (mapProvider === "leaflet") map.setView([position.lat, position.lng], zoom);
+  else {
+    map.setCenter(position);
+    map.setZoom(zoom);
+  }
 }
 
 function filteredProjects() {
@@ -261,8 +271,7 @@ function resetFilters() {
   document.querySelector("#sort-projects").value = "featured";
   document.querySelector("#reset-map").hidden = true;
   if (map) {
-    map.setCenter({ lat: 43.759, lng: -79.39 });
-    map.setZoom(9);
+    setMapView({ lat: 43.759, lng: -79.39 }, 9);
   }
   setCity("all");
 }
@@ -317,7 +326,35 @@ function markerContent(project) {
 }
 
 async function updateMarkers(items) {
-  if (!map || !window.google?.maps?.marker) return;
+  if (!map) return;
+
+  if (mapProvider === "leaflet") {
+    markers.forEach((marker) => marker.remove());
+    markers = items.flatMap((project) => {
+      const position = projectPosition(project);
+      if (!position) return [];
+      const price = project.price ? `$${Math.round(project.price / 1000)}K` : "View";
+      const marker = window.L.marker([position.lat, position.lng], {
+        title: project.title,
+        icon: window.L.divIcon({
+          className: "map-marker-host",
+          html: `<button class="map-marker" type="button" aria-label="View ${escapeHtml(project.title)}">${escapeHtml(price)}</button>`,
+          iconSize: [64, 34],
+          iconAnchor: [32, 17]
+        })
+      }).addTo(map);
+      marker.bindPopup(`
+        <div class="map-popup">
+          <strong>${escapeHtml(project.title)}</strong>
+          <span>${escapeHtml(project.address)}</span>
+          <button type="button" data-map-project="${Number(project.id)}">View project</button>
+        </div>`);
+      return [marker];
+    });
+    return;
+  }
+
+  if (!window.google?.maps?.marker) return;
   markers.forEach((marker) => { marker.map = null; });
   markers = [];
 
@@ -344,8 +381,44 @@ async function updateMarkers(items) {
   });
 }
 
+function initializeLeafletMap() {
+  if (!window.L) throw new Error("The map library could not be downloaded.");
+
+  mapProvider = "leaflet";
+  map = window.L.map("project-map", {
+    zoomControl: true,
+    scrollWheelZoom: false
+  }).setView([43.759, -79.39], 9);
+
+  window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  document.querySelector("#map-status").hidden = true;
+  document.querySelector("#search-this-area").disabled = false;
+  map.on("moveend", () => {
+    document.querySelector("#search-this-area").classList.add("attention");
+  });
+
+  const mapSearch = document.querySelector("#map-location-fallback");
+  mapSearch.addEventListener("search", () => {
+    state.query = mapSearch.value;
+    render();
+  });
+  mapSearch.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    state.query = mapSearch.value;
+    render();
+  });
+
+  render();
+}
+
 async function initializeMap() {
   const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+  mapProvider = "google";
   map = new Map(document.querySelector("#project-map"), {
     center: { lat: 43.759, lng: -79.39 },
     zoom: 9,
@@ -434,6 +507,17 @@ async function loadGoogleMaps() {
   }
 }
 
+async function loadProjectMap() {
+  const status = document.querySelector("#map-status");
+  try {
+    initializeLeafletMap();
+  } catch (leafletError) {
+    console.error("OpenStreetMap failed to load.", leafletError);
+    status.querySelector("span").textContent = "Trying the alternate map service.";
+    await loadGoogleMaps();
+  }
+}
+
 document.querySelector("#city-filters").addEventListener("click", (event) => {
   const chip = event.target.closest("[data-city]");
   if (chip) setCity(chip.dataset.city);
@@ -488,9 +572,8 @@ document.querySelector("#use-location").addEventListener("click", () => {
   if (!navigator.geolocation) return showToast("Location is not supported by this browser.");
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
-      if (!map) return showToast("Connect Google Maps to use location search.");
-      map.setCenter({ lat: coords.latitude, lng: coords.longitude });
-      map.setZoom(13);
+      if (!map) return showToast("The project map is not available yet.");
+      setMapView({ lat: coords.latitude, lng: coords.longitude }, 13);
       state.mapBounds = null;
       document.querySelector("#reset-map").hidden = false;
     },
@@ -539,4 +622,4 @@ function showToast(message) {
 
 document.querySelector("#year").textContent = new Date().getFullYear();
 loadProjects();
-loadGoogleMaps();
+loadProjectMap();
