@@ -15,7 +15,7 @@ function projectId(context) {
 }
 
 export async function onRequestPut(context) {
-  const unauthorized = requireAdmin(context);
+  const unauthorized = await requireAdmin(context);
   if (unauthorized) return unauthorized;
   const missingDatabase = requireDatabase(context.env);
   if (missingDatabase) return missingDatabase;
@@ -39,7 +39,7 @@ export async function onRequestPut(context) {
 }
 
 export async function onRequestDelete(context) {
-  const unauthorized = requireAdmin(context);
+  const unauthorized = await requireAdmin(context);
   if (unauthorized) return unauthorized;
   const missingDatabase = requireDatabase(context.env);
   if (missingDatabase) return missingDatabase;

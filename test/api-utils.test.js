@@ -38,19 +38,19 @@ test("projectPayload rejects invalid coordinates", () => {
   }), /Latitude/);
 });
 
-test("administrator bearer token must match configured secret", () => {
+test("administrator bearer token must match configured secret", async () => {
   const request = new Request("https://example.com/api/admin/projects", {
     headers: { Authorization: "Bearer correct-token" }
   });
-  assert.equal(isAdmin(request, { ADMIN_API_TOKEN: "correct-token" }), true);
-  assert.equal(isAdmin(request, { ADMIN_API_TOKEN: "wrong-token" }), false);
+  assert.equal(await isAdmin(request, { ADMIN_API_TOKEN: "correct-token" }), true);
+  assert.equal(await isAdmin(request, { ADMIN_API_TOKEN: "wrong-token" }), false);
 });
 
-test("Cloudflare Access email can authorize an administrator", () => {
+test("Cloudflare Access email can authorize an administrator", async () => {
   const request = new Request("https://example.com/api/admin/projects", {
     headers: { "Cf-Access-Authenticated-User-Email": "jack@example.com" }
   });
-  assert.equal(isAdmin(request, { ADMIN_EMAILS: "jack@example.com,team@example.com" }), true);
+  assert.equal(await isAdmin(request, { ADMIN_EMAILS: "jack@example.com,team@example.com" }), true);
 });
 
 test("database rows are mapped to public project objects", () => {

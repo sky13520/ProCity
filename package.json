@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check admin/admin.js && node --check functions/api/projects.js && node --check functions/api/admin/projects.js && node --check 'functions/api/admin/projects/[id].js'"
+    "check": "node --check public/app.js && node --check public/admin/admin.js && node --check src/index.js && node --check src/schema.js && node --check functions/api/projects.js && node --check functions/api/admin/projects.js && node --check 'functions/api/admin/projects/[id].js'",
+    "cf:check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260727.1",
+    "wrangler": "^4.114.0"
   }
 }
