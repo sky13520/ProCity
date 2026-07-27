@@ -1,7 +1,8 @@
 # ProCity Realty — Toronto Pre-Construction Directory
 
-A responsive Toronto and GTA pre-construction directory with a Cloudflare D1
-database, a secure project-management dashboard, and Google Maps search.
+A responsive Toronto and GTA pre-construction directory deployed as one
+Cloudflare Worker with static assets, a D1 database, a secure
+project-management dashboard, and Google Maps search.
 
 ## Included
 
@@ -11,33 +12,31 @@ database, a secure project-management dashboard, and Google Maps search.
 - Interactive price markers linked to project details
 - `/admin/` project dashboard with create, edit, publish/unpublish, and delete
 - Starter project fallback while D1 is not connected
-- Cloudflare Pages Functions API with prepared SQL statements
+- Cloudflare Worker API with prepared D1 statements
+- Automatic first-run database schema and starter-data initialization
 
-## Cloudflare Pages settings
+## Cloudflare Worker settings
 
+- Worker name: `procity`
 - Production branch: `main`
-- Framework preset: `None`
-- Build command: leave blank
-- Build output directory: `.`
+- Deploy command: `npx wrangler deploy`
+- Static asset directory: `public`
 
-### 1. Create and initialize D1
+### 1. Connect D1
 
-Create a D1 database named `procity-projects`, then run:
-
-```bash
-npx wrangler@latest d1 execute procity-projects --remote --file=./migrations/0001_create_projects.sql
-```
-
-In the Pages project, open **Settings → Bindings → Add → D1 database** and use:
+Create or select the D1 database named `procity`. The Wrangler configuration
+declares the following binding:
 
 - Variable name: `DB`
-- Database: `procity-projects`
+- Database: `procity`
 
-Redeploy after adding the binding.
+The Worker creates the `projects` table and inserts demonstration data on the
+first API request if the database is empty. The SQL migration remains available
+for manual or CI-based migration workflows.
 
 ### 2. Protect the admin API
 
-In **Settings → Variables and Secrets**, add a secret:
+In **Settings → Variables and Secrets**, add an encrypted secret:
 
 - `ADMIN_API_TOKEN`: a long, randomly generated password
 
@@ -46,7 +45,8 @@ browser tab. For Cloudflare Access, optionally add:
 
 - `ADMIN_EMAILS`: comma-separated approved email addresses
 
-Then protect `/admin/*` and `/api/admin/*` with a Cloudflare Access application.
+For an additional security layer, protect `/admin/*` and `/api/admin/*` with a
+Cloudflare Access application.
 
 ### 3. Connect Google Maps
 
@@ -57,12 +57,17 @@ Enable **Maps JavaScript API** and **Places API (New)** in Google Cloud. Add:
 Restrict the key to the production domain and the Maps JavaScript/Places APIs.
 Redeploy after saving the variable.
 
+### 4. Check runtime status
+
+Open `/api/health`. It reports whether the database, admin authentication, and
+Google Maps are configured without exposing any secret values.
+
 ## Local checks
 
 ```bash
 npm test
-node --check app.js
-node --check admin/admin.js
+npm run check
+npx wrangler deploy --dry-run
 ```
 
 Project content in the first migration is demonstration data and must be

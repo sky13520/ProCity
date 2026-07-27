@@ -10,7 +10,7 @@ import {
 } from "../../_lib/http.js";
 
 export async function onRequestGet(context) {
-  const unauthorized = requireAdmin(context);
+  const unauthorized = await requireAdmin(context);
   if (unauthorized) return unauthorized;
   const missingDatabase = requireDatabase(context.env);
   if (missingDatabase) return missingDatabase;
@@ -26,7 +26,7 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const unauthorized = requireAdmin(context);
+  const unauthorized = await requireAdmin(context);
   if (unauthorized) return unauthorized;
   const missingDatabase = requireDatabase(context.env);
   if (missingDatabase) return missingDatabase;

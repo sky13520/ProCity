@@ -14,16 +14,27 @@ export function apiError(message, status = 400, details) {
   return json({ error: message, ...(details ? { details } : {}) }, status);
 }
 
-function timingSafeEqual(left, right) {
-  if (!left || !right || left.length !== right.length) return false;
+async function timingSafeEqual(left, right) {
+  if (!left || !right) return false;
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(left)),
+    crypto.subtle.digest("SHA-256", encoder.encode(right))
+  ]);
+  if (typeof crypto.subtle.timingSafeEqual === "function") {
+    return crypto.subtle.timingSafeEqual(leftHash, rightHash);
+  }
+
+  const leftBytes = new Uint8Array(leftHash);
+  const rightBytes = new Uint8Array(rightHash);
   let mismatch = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    mismatch |= leftBytes[index] ^ rightBytes[index];
   }
   return mismatch === 0;
 }
 
-export function isAdmin(request, env) {
+export async function isAdmin(request, env) {
   const accessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
   const allowedEmails = String(env.ADMIN_EMAILS || "")
     .split(",")
@@ -37,15 +48,15 @@ export function isAdmin(request, env) {
   return timingSafeEqual(token, String(env.ADMIN_API_TOKEN || ""));
 }
 
-export function requireAdmin(context) {
-  if (isAdmin(context.request, context.env)) return null;
+export async function requireAdmin(context) {
+  if (await isAdmin(context.request, context.env)) return null;
   return apiError("Administrator authorization required.", 401);
 }
 
 export function requireDatabase(env) {
   if (env.DB) return null;
   return apiError(
-    "Database binding is not configured. Add a D1 binding named DB in Cloudflare Pages.",
+    "Database binding is not configured. Add a D1 binding named DB to the Cloudflare Worker.",
     503
   );
 }
