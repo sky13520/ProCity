@@ -4,6 +4,6 @@ export function onRequestGet(context) {
   return json(
     { googleMapsApiKey: String(context.env.GOOGLE_MAPS_API_KEY || "") },
     200,
-    { "cache-control": "public, max-age=300" }
+    { "cache-control": "no-store" }
   );
 }

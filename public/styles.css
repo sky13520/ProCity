@@ -312,6 +312,7 @@ img { display: block; max-width: 100%; }
     linear-gradient(rgba(240, 238, 232, .9), rgba(240, 238, 232, .9)),
     repeating-linear-gradient(45deg, #ddd 0 1px, transparent 1px 16px);
 }
+.map-status[hidden] { display: none; }
 .map-status strong { font: 600 24px "Manrope"; }
 .map-status span { max-width: 270px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .map-reset {

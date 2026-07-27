@@ -361,44 +361,76 @@ async function initializeMap() {
     document.querySelector("#search-this-area").classList.add("attention");
   });
 
-  const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
-  const placeAutocomplete = new PlaceAutocompleteElement({
-    includedRegionCodes: ["ca"],
-    locationBias: { center: { lat: 43.75, lng: -79.39 }, radius: 65000 }
-  });
-  placeAutocomplete.placeholder = "Search an address or neighbourhood";
-  const host = document.querySelector("#place-autocomplete");
-  host.replaceChildren(placeAutocomplete);
-  placeAutocomplete.addEventListener("gmp-select", async ({ placePrediction }) => {
-    const place = placePrediction.toPlace();
-    await place.fetchFields({ fields: ["displayName", "formattedAddress", "location", "viewport"] });
-    if (place.viewport) map.fitBounds(place.viewport);
-    else if (place.location) {
-      map.setCenter(place.location);
-      map.setZoom(14);
-    }
-    state.mapBounds = null;
-    document.querySelector("#reset-map").hidden = false;
-  });
+  try {
+    const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+    const placeAutocomplete = new PlaceAutocompleteElement({
+      includedRegionCodes: ["ca"],
+      locationBias: { center: { lat: 43.75, lng: -79.39 }, radius: 65000 }
+    });
+    placeAutocomplete.placeholder = "Search an address or neighbourhood";
+    const host = document.querySelector("#place-autocomplete");
+    host.replaceChildren(placeAutocomplete);
+    placeAutocomplete.addEventListener("gmp-select", async ({ placePrediction }) => {
+      const place = placePrediction.toPlace();
+      await place.fetchFields({ fields: ["displayName", "formattedAddress", "location", "viewport"] });
+      if (place.viewport) map.fitBounds(place.viewport);
+      else if (place.location) {
+        map.setCenter(place.location);
+        map.setZoom(14);
+      }
+      state.mapBounds = null;
+      document.querySelector("#reset-map").hidden = false;
+    });
+  } catch (error) {
+    console.error("Google Places search failed to initialize.", error);
+    document.querySelector("#map-location-fallback").placeholder = "Map loaded; address search is unavailable";
+  }
   render();
 }
 
+function loadGoogleMapsScript(apiKey) {
+  return new Promise((resolve, reject) => {
+    const callbackName = "__procityGoogleMapsReady";
+    const script = document.createElement("script");
+    const cleanup = () => {
+      delete window[callbackName];
+      delete window.gm_authFailure;
+    };
+
+    window[callbackName] = () => {
+      cleanup();
+      resolve();
+    };
+    window.gm_authFailure = () => {
+      cleanup();
+      reject(new Error("Google Maps rejected the API key or website restriction."));
+    };
+
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=${callbackName}`;
+    script.async = true;
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("The Google Maps script could not be downloaded."));
+    };
+    document.head.appendChild(script);
+  });
+}
+
 async function loadGoogleMaps() {
+  const status = document.querySelector("#map-status");
   try {
-    const response = await fetch("/api/config");
+    const response = await fetch("/api/config", { cache: "no-store" });
     const config = response.ok ? await response.json() : {};
-    if (!config.googleMapsApiKey) return;
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.googleMapsApiKey)}&v=weekly&loading=async`;
-      script.async = true;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
+    if (!config.googleMapsApiKey) {
+      status.querySelector("span").textContent = "Google Maps is ready in the website code, but GOOGLE_MAPS_API_KEY is not set in this production Worker.";
+      return;
+    }
+    await loadGoogleMapsScript(config.googleMapsApiKey);
     await initializeMap();
   } catch (error) {
-    document.querySelector("#map-status span").textContent = "The map could not be loaded. List search is still available.";
+    console.error("Google Maps failed to load.", error);
+    status.hidden = false;
+    status.querySelector("span").textContent = error.message || "The map could not be loaded. List search is still available.";
   }
 }
 
