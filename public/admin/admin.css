@@ -3,11 +3,11 @@
 :root {
   --ink: #151717;
   --muted: #73746f;
-  --paper: #f5f3ee;
+  --paper: #fff9e8;
   --white: #fff;
   --line: #dedbd2;
-  --accent: #f04b3f;
-  --success: #247554;
+  --accent: #ffbe18;
+  --success: #07c160;
 }
 
 * { box-sizing: border-box; }
