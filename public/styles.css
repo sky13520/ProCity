@@ -408,6 +408,14 @@ img { display: block; max-width: 100%; }
 .project-data-list dt { color: var(--muted); font-size: 10px; letter-spacing: .7px; text-transform: uppercase; }
 .project-data-list dd { margin: 7px 0 0; line-height: 1.5; font-weight: 600; }
 .deposit-copy { padding: 23px; background: var(--paper); white-space: pre-line; line-height: 1.75; }
+.amenities-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.amenities-grid li { display: flex; gap: 11px; align-items: flex-start; padding: 16px 18px; background: var(--paper); line-height: 1.5; }
+.amenities-grid li span { color: var(--green-dark); font-weight: 800; }
+.section-heading-row { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.section-heading-row h2 { margin: 7px 0 0; }
+.section-heading-row > a { color: var(--green-dark); font-weight: 700; white-space: nowrap; }
+.project-map-frame { overflow: hidden; min-height: 430px; border: 1px solid var(--line); background: #e9e5da; }
+.project-map-frame iframe { display: block; width: 100%; height: 430px; border: 0; }
 .project-sidebar { position: sticky; top: 105px; padding: 32px; background: var(--accent); }
 .project-sidebar h2 { font-size: 31px; }.project-sidebar > p:not(.eyebrow) { line-height: 1.6; }
 .compact-lead { display: grid; gap: 13px; }.compact-lead label { display: grid; gap: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
@@ -439,6 +447,9 @@ img { display: block; max-width: 100%; }
   .project-detail-grid { grid-template-columns: 1fr; }.project-sidebar { position: static; }.detail-facts { grid-template-columns: 1fr; }
   .project-gallery { margin: 10px 18px 0; grid-template-columns: repeat(2, 1fr); }
   .project-data-list { grid-template-columns: 1fr; }
+  .amenities-grid { grid-template-columns: 1fr; }
+  .section-heading-row { align-items: flex-start; flex-direction: column; }
+  .project-map-frame, .project-map-frame iframe { min-height: 340px; height: 340px; }
 }
 
 .area-section { padding-top: 30px; }
