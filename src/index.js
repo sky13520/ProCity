@@ -167,17 +167,34 @@ function sourceUrlForProject(row) {
 
 async function enrichProject(database, row) {
   const sourceUrl = sourceUrlForProject(row);
-  if (!sourceUrl || row.details_fetched_at) return row;
+  const storedImages = (() => {
+    try { return JSON.parse(row.images_json || "[]"); } catch { return []; }
+  })();
+  const hasStoredDetails = storedImages.length > 1
+    || row.property_details_json && row.property_details_json !== "{}"
+    || row.pricing_fees_json && row.pricing_fees_json !== "{}"
+    || row.deposit_structure;
+  if (!sourceUrl || (row.details_fetched_at && hasStoredDetails)) return row;
   try {
     const response = await fetch(sourceUrl, {
-      headers: { "user-agent": "ProCity project research/1.0 (+https://procity.ca)" },
-      signal: AbortSignal.timeout(8000),
+      headers: {
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "accept-language": "en-CA,en;q=0.9",
+        "cache-control": "no-cache",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+      },
+      signal: AbortSignal.timeout(6000),
       cf: { cacheEverything: true, cacheTtl: 86400 }
     });
     if (!response.ok) return row;
     const html = await response.text();
     if (html.length > 3_000_000) return row;
     const details = parseProjectSource(html);
+    const hasDetails = details.images.length > 1
+      || Object.keys(details.propertyDetails).length
+      || Object.keys(details.pricingFees).length
+      || details.depositStructure;
+    if (!hasDetails) return { ...row, source_url: sourceUrl };
     const images = details.images.length ? details.images : [row.image_url].filter(Boolean);
     await database.prepare(
       `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
