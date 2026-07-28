@@ -138,11 +138,26 @@ export function toProject(row) {
     occupancy: row.occupancy,
     badge: row.badge,
     image: row.image_url,
+    images: parseStoredJson(row.images_json, []),
     description: row.description,
+    sourceUrl: row.source_url || "",
+    propertyDetails: parseStoredJson(row.property_details_json, {}),
+    pricingFees: parseStoredJson(row.pricing_fees_json, {}),
+    depositStructure: row.deposit_structure || "",
     latitude: row.latitude,
     longitude: row.longitude,
     featured: Boolean(row.featured),
     published: Boolean(row.published),
     slug: `${slug}-${row.id}`
   };
+}
+
+function parseStoredJson(value, fallback) {
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
 }

@@ -10,6 +10,9 @@ import {
   onRequestPut as updateAdminProject
 } from "../functions/api/admin/projects/[id].js";
 import { initializeDatabase } from "./schema.js";
+import PROJECT_CATALOG from "./project-data.json" with { type: "json" };
+
+const CATALOG_ID_OFFSET = 100000;
 
 function methodNotAllowed(allowed) {
   return json(
@@ -93,19 +96,144 @@ function projectIdFromPath(pathname) {
   return match ? Number(match[1]) : null;
 }
 
+function decodeSourceText(value = "") {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;|&#8220;|&#8221;/gi, '"')
+    .replace(/&#039;|&apos;|&#8217;/gi, "'")
+    .replace(/&ndash;|&#8211;/gi, "–")
+    .replace(/&mdash;|&#8212;/gi, "—")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .trim();
+}
+
+function sectionHtml(html, heading) {
+  const expression = new RegExp(
+    `<h[1-4][^>]*>[\\s\\S]*?${heading}[\\s\\S]*?<\\/h[1-4]>([\\s\\S]*?)(?=<h[1-4][^>]*>|$)`,
+    "i"
+  );
+  return html.match(expression)?.[1] || "";
+}
+
+function parseDetailPairs(html) {
+  const pairs = {};
+  for (const match of html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)) {
+    const text = decodeSourceText(match[1]);
+    const separator = text.indexOf(":");
+    if (separator > 0) {
+      const key = text.slice(0, separator).trim();
+      const value = text.slice(separator + 1).trim();
+      if (key && value && key.length < 80) pairs[key] = value;
+    }
+  }
+  return pairs;
+}
+
+function normalizeProjectImage(url) {
+  return url
+    .replace(/-\d+x\d+(?=\.[a-z]{3,4}(?:\?|$))/i, "")
+    .replace(/&amp;/g, "&");
+}
+
+function parseProjectSource(html) {
+  const projectHtml = html.split(/More Projects in this area/i)[0];
+  const imageCandidates = [
+    ...projectHtml.matchAll(/<(?:img|source)[^>]+(?:src|data-src|data-lazy-src)="(https:\/\/mycondopro\.ca\/wp-content\/uploads\/[^"]+)"/gi)
+  ].map((match) => normalizeProjectImage(match[1]));
+  const images = [...new Set(imageCandidates)]
+    .filter((url) => !/logo|icon|avatar|agent|placeholder|loading/i.test(url))
+    .slice(0, 40);
+  const propertyDetails = parseDetailPairs(sectionHtml(projectHtml, "Property Details"));
+  const pricingFees = parseDetailPairs(sectionHtml(projectHtml, "Pricing (?:&amp;|&) Fees"));
+  const depositHtml = sectionHtml(projectHtml, "Deposit Structure");
+  return {
+    images,
+    propertyDetails,
+    pricingFees,
+    depositStructure: decodeSourceText(depositHtml).slice(0, 4000)
+  };
+}
+
+function sourceUrlForProject(row) {
+  if (row.source_url) return row.source_url;
+  const catalogIndex = Number(row.id) - CATALOG_ID_OFFSET;
+  return PROJECT_CATALOG[catalogIndex]?.sourceUrl || "";
+}
+
+async function enrichProject(database, row) {
+  const sourceUrl = sourceUrlForProject(row);
+  if (!sourceUrl || row.details_fetched_at) return row;
+  try {
+    const response = await fetch(sourceUrl, {
+      headers: { "user-agent": "ProCity project research/1.0 (+https://procity.ca)" },
+      signal: AbortSignal.timeout(8000),
+      cf: { cacheEverything: true, cacheTtl: 86400 }
+    });
+    if (!response.ok) return row;
+    const html = await response.text();
+    if (html.length > 3_000_000) return row;
+    const details = parseProjectSource(html);
+    const images = details.images.length ? details.images : [row.image_url].filter(Boolean);
+    await database.prepare(
+      `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
+       pricing_fees_json = ?, deposit_structure = ?, details_fetched_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(
+      sourceUrl,
+      JSON.stringify(images),
+      JSON.stringify(details.propertyDetails),
+      JSON.stringify(details.pricingFees),
+      details.depositStructure,
+      row.id
+    ).run();
+    return {
+      ...row,
+      source_url: sourceUrl,
+      images_json: JSON.stringify(images),
+      property_details_json: JSON.stringify(details.propertyDetails),
+      pricing_fees_json: JSON.stringify(details.pricingFees),
+      deposit_structure: details.depositStructure,
+      details_fetched_at: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: "Project detail enrichment failed",
+      projectId: row.id,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+    return row;
+  }
+}
+
 function projectNarrative(project) {
   const builder = project.builder || "an established development team";
+  const storeys = project.propertyDetails.Storeys;
+  const suites = project.propertyDetails.Suites;
+  const scale = storeys && suites
+    ? `The current plan calls for ${storeys} storeys and ${suites} residences, giving the development a clearly defined scale.`
+    : storeys
+      ? `The current plan is organized across ${storeys} storeys.`
+      : suites
+        ? `The current plan includes approximately ${suites} residences.`
+        : "";
+  const status = project.propertyDetails["Building Status"] || project.badge;
+  const statusSentence = status ? `It is presently listed as ${status.toLowerCase()}.` : "";
   const occupancy = project.occupancy
     ? `The currently listed occupancy timing is ${project.occupancy}.`
     : "Occupancy timing is available upon request and should be confirmed before purchase.";
-  return `${project.title} is a ${project.type.toLowerCase()} opportunity by ${builder} at ${project.address}. Its ${project.city} location gives buyers a practical base for comparing local transit, everyday amenities and the surrounding community. ${occupancy} ProCity can provide the latest pricing, floor plans, incentives and availability for independent review.`;
+  return `${project.title} is a ${project.type.toLowerCase()} community by ${builder}, planned for ${project.address}. ${scale} ${statusSentence} From this ${project.city} address, buyers can weigh the project against nearby transportation, everyday services and the character of the surrounding neighbourhood. ${occupancy} ProCity can provide the current sales package so pricing, floor plans, incentives and availability can be reviewed together.`.replace(/\s+/g, " ").trim();
 }
 
 function siteHeader() {
   return `<header class="site-header">
     <a class="brand" href="/" aria-label="ProCity home"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity" width="1650" height="488"></span></a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/projects/">Projects</a><a href="/map/">Map Search</a><a href="/#areas">Cities</a><a href="/#why-procity">Why ProCity</a></nav>
-    <div class="header-actions"><a class="phone-link" href="tel:+16478479666">647 847 9666</a><a class="button button-small" href="#contact">Get VIP Access</a></div>
+    <div class="header-actions"><a class="phone-link" href="tel:+16478479666">647 847 9666</a><a class="button button-small" href="#contact">Get VIP Access</a><button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button></div>
   </header>`;
 }
 
@@ -116,21 +244,31 @@ function siteFooter() {
     <div class="legal"><span>© ${new Date().getFullYear()} ProCity. All rights reserved.</span><span>GO WITH THE PRO.</span></div></footer>`;
 }
 
+function renderDetailList(details) {
+  const entries = Object.entries(details || {}).filter(([, value]) => value);
+  if (!entries.length) return "";
+  return `<dl class="project-data-list">${entries.map(([label, value]) =>
+    `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`
+  ).join("")}</dl>`;
+}
+
 async function renderProjectPage(request, env, id) {
   if (!env.DB) return new Response("Project database is unavailable.", { status: 503 });
   await initializeDatabase(env.DB);
-  const row = await env.DB.prepare(
+  let row = await env.DB.prepare(
     "SELECT * FROM projects WHERE published = 1 AND id = ?"
   ).bind(id).first();
   if (!row) return new Response("Project not found.", { status: 404 });
 
+  row = await enrichProject(env.DB, row);
   const project = toProject(row);
   const canonical = `https://procity.ca/project/${project.slug}/`;
   const description = projectNarrative(project);
   const price = project.price
     ? `$${Number(project.price).toLocaleString("en-CA")}`
     : "Contact for pricing";
-  const image = project.image || "https://procity.ca/procity-logo.png";
+  const projectImages = [...new Set([...project.images, project.image].filter(Boolean))].slice(0, 40);
+  const image = projectImages[0] || "https://procity.ca/procity-logo.png";
   const ratingValue = "5";
   const reviewCount = "1";
   const schema = {
@@ -142,7 +280,7 @@ async function renderProjectPage(request, env, id) {
         url: canonical,
         name: project.title,
         description,
-        image: [image],
+        image: projectImages.length ? projectImages : [image],
         datePosted: row.updated_at,
         offers: {
           "@type": "Offer",
@@ -183,7 +321,6 @@ async function renderProjectPage(request, env, id) {
             "@type": "Review",
             author: { "@type": "Person", name: "CondoNow member" },
             reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-            reviewBody: "Best Agent for Pre-construction",
             url: "https://condonow.com/Real-Estate-Agent/Jack-Qin2"
           }
         ]
@@ -212,15 +349,18 @@ async function renderProjectPage(request, env, id) {
     <meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(project.title)} | ProCity">
     <meta property="og:description" content="${escapeHtml(description.slice(0, 190))}"><meta property="og:url" content="${canonical}">
     <meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="/styles.css?v=20260728-1"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
+    <link rel="stylesheet" href="/styles.css?v=20260728-2"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
   </head><body>${siteHeader()}<main>
     <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/projects/">Projects</a><span>›</span><span>${escapeHtml(project.title)}</span></nav>
     <section class="project-hero-detail">
-      <div class="project-hero-image">${project.image ? `<img src="${escapeHtml(project.image)}" alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}">` : `<div class="image-placeholder">PROCITY</div>`}</div>
+      <div class="project-hero-image">${projectImages.length ? `<img src="${escapeHtml(projectImages[0])}" alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}">` : `<div class="image-placeholder">PROCITY</div>`}</div>
       <div class="project-hero-copy"><p class="eyebrow">${escapeHtml(project.area)} · ${escapeHtml(project.city)}</p><h1>${escapeHtml(project.title)}</h1>
         <p class="project-lead">${escapeHtml(description)}</p><a class="button" href="#contact">Request pricing &amp; floor plans</a>
       </div>
     </section>
+    ${projectImages.length > 1 ? `<section class="project-gallery" aria-label="${escapeHtml(project.title)} image gallery">${projectImages.slice(1).map((url, index) =>
+      `<figure><a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="${escapeHtml(project.title)} project image ${index + 2}" loading="lazy"></a></figure>`
+    ).join("")}</section>` : ""}
     <section class="project-detail-grid section">
       <div><p class="eyebrow">PROJECT OVERVIEW</p><h2>Key project information</h2>
         <div class="detail-facts">
@@ -235,13 +375,15 @@ async function renderProjectPage(request, env, id) {
           <h2>Location and neighbourhood</h2><p>Located in ${escapeHtml(project.area)}, this project offers a ${escapeHtml(project.city)} address to evaluate alongside nearby transportation, schools, shopping, parks and employment destinations. Ask ProCity for a current location review tailored to your needs.</p>
           <h2>Pricing, floor plans and incentives</h2><p>Availability, deposits, maintenance fees, parking, locker options and builder incentives can change. Request the latest sales package before making a decision.</p>
         </article>
+        ${Object.keys(project.propertyDetails).length ? `<section class="project-data-section"><h2>Property Details</h2>${renderDetailList(project.propertyDetails)}</section>` : ""}
+        ${Object.keys(project.pricingFees).length ? `<section class="project-data-section"><h2>Pricing &amp; Fees</h2>${renderDetailList(project.pricingFees)}</section>` : ""}
+        ${project.depositStructure ? `<section class="project-data-section"><h2>Deposit Structure</h2><div class="deposit-copy">${escapeHtml(project.depositStructure)}</div></section>` : ""}
       </div>
       <aside class="project-sidebar" id="contact"><p class="eyebrow">VIP INFORMATION</p><h2>Get the current package</h2><p>Ask for the latest prices, floor plans, incentives and availability.</p>
         <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
       </aside>
     </section>
-    <section class="review-band"><div><p class="eyebrow">VERIFIED CLIENT REVIEW</p><strong>5 / 5</strong><span>Published on CondoNow</span></div><blockquote>“Best Agent for Pre-construction”<cite>Public review of Jack Qin · CondoNow</cite></blockquote></section>
-  </main>${siteFooter()}<script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
+  </main>${siteFooter()}<script src="/site.js?v=20260728-2"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" }
   });
 }

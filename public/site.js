@@ -27,4 +27,14 @@ async function loadFeatured() {
 document.querySelectorAll(".lead-form").forEach((form) => form.addEventListener("submit", (event) => {
   event.preventDefault(); alert("Thank you. ProCity will contact you shortly."); form.reset();
 }));
+
+document.querySelectorAll(".menu-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const navigation = button.closest(".site-header")?.querySelector(".desktop-nav");
+    const isOpen = navigation?.classList.toggle("open") || false;
+    button.setAttribute("aria-expanded", String(isOpen));
+    button.setAttribute("aria-label", isOpen ? "Close menu" : "Open menu");
+  });
+});
+
 loadFeatured();

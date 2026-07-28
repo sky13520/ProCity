@@ -32,6 +32,15 @@ const SCHEMA_STATEMENTS = [
 const CATALOG_BATCH_SIZE = 100;
 const CATALOG_ID_OFFSET = 100000;
 
+const DETAIL_COLUMNS = {
+  source_url: "TEXT NOT NULL DEFAULT ''",
+  images_json: "TEXT NOT NULL DEFAULT '[]'",
+  property_details_json: "TEXT NOT NULL DEFAULT '{}'",
+  pricing_fees_json: "TEXT NOT NULL DEFAULT '{}'",
+  deposit_structure: "TEXT NOT NULL DEFAULT ''",
+  details_fetched_at: "TEXT"
+};
+
 const STARTER_PROJECTS = [
   [1, "Harbourline Residences", "Toronto", "East Bayfront", "25 Queens Quay E, Toronto, ON", "Condo", "A curated ProCity opportunity", 699000, "2029", "FEATURED", "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1400&q=85", "Contemporary waterfront living with quick access to downtown, transit, and the lake.", 43.6437, -79.3717, 1, 1],
   [2, "The Junction House", "Toronto", "The Junction", "2853 Dundas St W, Toronto, ON", "Condo", "A curated ProCity opportunity", 759000, "2028", "NEW RELEASE", "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1400&q=85", "Boutique urban residences in one of Toronto's most character-rich neighbourhoods.", 43.6654, -79.4654, 0, 1],
@@ -60,6 +69,13 @@ export async function initializeDatabase(database) {
   await database.batch(
     SCHEMA_STATEMENTS.map((statement) => database.prepare(statement))
   );
+  const columnResult = await database.prepare("PRAGMA table_info(projects)").all();
+  const existingColumns = new Set(columnResult.results.map((column) => column.name));
+  for (const [name, definition] of Object.entries(DETAIL_COLUMNS)) {
+    if (!existingColumns.has(name)) {
+      await database.prepare(`ALTER TABLE projects ADD COLUMN ${name} ${definition}`).run();
+    }
+  }
   await syncProjectCatalog(database);
 }
 
