@@ -118,6 +118,13 @@ export const PROJECT_COLUMNS = `
 `;
 
 export function toProject(row) {
+  const localProjectImage = (value) => {
+    const image = String(value || "");
+    return /^\/project-images\/[a-z0-9/_-]+\.webp$/i.test(image) ? image : "";
+  };
+  const storedImages = parseStoredJson(row.images_json, [])
+    .map(localProjectImage)
+    .filter(Boolean);
   const slug = String(row.title || "project")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -137,10 +144,9 @@ export function toProject(row) {
     priceLabel: row.price ? `From $${Math.round(row.price / 1000)}K` : "Contact for pricing",
     occupancy: row.occupancy,
     badge: row.badge,
-    image: row.image_url,
-    images: parseStoredJson(row.images_json, []),
+    image: localProjectImage(row.image_url) || storedImages[0] || "",
+    images: storedImages,
     description: row.description,
-    sourceUrl: row.source_url || "",
     propertyDetails: parseStoredJson(row.property_details_json, {}),
     pricingFees: parseStoredJson(row.pricing_fees_json, {}),
     depositStructure: row.deposit_structure || "",

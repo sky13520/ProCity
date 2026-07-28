@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://procity.ca/sitemap.xml
+# Indexing is temporarily paused. Pages remain crawlable so search engines can
+# receive the site-wide X-Robots-Tag: noindex response.

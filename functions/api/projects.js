@@ -21,6 +21,20 @@ export async function onRequestGet(context) {
   const missingDatabase = requireDatabase(context.env);
   if (missingDatabase) return missingDatabase;
 
+  return json(
+    {
+      projects: [],
+      pagination: { page: 1, limit: 24, total: 0, totalPages: 0 },
+      paused: true
+    },
+    200,
+    {
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow, noarchive"
+    }
+  );
+
+  /* Project listings are intentionally paused while replacement content is prepared.
   try {
     const url = new URL(context.request.url);
     const id = Number.parseInt(url.searchParams.get("id"), 10);
@@ -82,4 +96,5 @@ export async function onRequestGet(context) {
   } catch (error) {
     return apiError("Unable to load projects.", 500, error.message);
   }
+  */
 }

@@ -10,9 +10,8 @@ import {
   onRequestPut as updateAdminProject
 } from "../functions/api/admin/projects/[id].js";
 import { initializeDatabase } from "./schema.js";
-import PROJECT_CATALOG from "./project-data.json" with { type: "json" };
 
-const CATALOG_ID_OFFSET = 100000;
+const PUBLIC_PROJECTS_PAUSED = true;
 
 function methodNotAllowed(allowed) {
   return json(
@@ -46,7 +45,7 @@ async function routeApi(request, env, ctx) {
         "SELECT COUNT(*) AS project_count FROM projects"
       ).first();
       databaseReady = true;
-      projectCount = Number(row?.project_count || 0);
+      projectCount = PUBLIC_PROJECTS_PAUSED ? 0 : Number(row?.project_count || 0);
     }
     return json({
       status: "ok",
@@ -94,248 +93,6 @@ function escapeHtml(value) {
 function projectIdFromPath(pathname) {
   const match = pathname.match(/^\/project\/[^/]*?-(\d+)\/?$/);
   return match ? Number(match[1]) : null;
-}
-
-function decodeSourceText(value = "") {
-  return value
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;|&#8220;|&#8221;/gi, '"')
-    .replace(/&#039;|&apos;|&#8217;/gi, "'")
-    .replace(/&ndash;|&#8211;/gi, "–")
-    .replace(/&mdash;|&#8212;/gi, "—")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/[ \t]+/g, " ")
-    .replace(/\s*\n\s*/g, "\n")
-    .trim();
-}
-
-function sectionHtml(html, heading) {
-  const expression = new RegExp(
-    `<h[1-4][^>]*>[\\s\\S]*?${heading}[\\s\\S]*?<\\/h[1-4]>([\\s\\S]*?)(?=<h[1-4][^>]*>|$)`,
-    "i"
-  );
-  return html.match(expression)?.[1] || "";
-}
-
-function parseDetailPairs(html) {
-  const pairs = {};
-  for (const match of html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)) {
-    const text = decodeSourceText(match[1]);
-    const separator = text.indexOf(":");
-    if (separator > 0) {
-      const key = text.slice(0, separator).trim();
-      const value = text.slice(separator + 1).trim();
-      if (key && value && key.length < 80) pairs[key] = value;
-    }
-  }
-  return pairs;
-}
-
-function parseDetailItems(html) {
-  const items = [];
-  for (const match of html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)) {
-    const text = decodeSourceText(match[1]);
-    if (text && text.length < 240) items.push(text);
-  }
-  return [...new Set(items)];
-}
-
-function normalizeProjectImage(url, baseUrl = "https://mycondopro.ca") {
-  let normalized = decodeSourceText(String(url || ""))
-    .replace(/\\\//g, "/")
-    .replace(/^['"]|['"]$/g, "");
-  if (normalized.startsWith("//")) normalized = `https:${normalized}`;
-  if (normalized.startsWith("/")) normalized = `${baseUrl}${normalized}`;
-  return normalized
-    .replace(/-\d+x\d+(?=\.[a-z]{3,4}(?:\?|$))/i, "")
-    .replace(/&amp;/g, "&");
-}
-
-export function parseProjectSource(html) {
-  const projectHtml = html.split(/More Projects in this area/i)[0];
-  const imageCandidates = [];
-  for (const match of projectHtml.matchAll(/(?:src|data-src|data-lazy-src|data-bg|href)\s*=\s*["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/gi)) {
-    imageCandidates.push(normalizeProjectImage(match[1]));
-  }
-  for (const match of projectHtml.matchAll(/(?:srcset|data-srcset)\s*=\s*["']([^"']+)["']/gi)) {
-    for (const candidate of match[1].split(",")) {
-      imageCandidates.push(normalizeProjectImage(candidate.trim().split(/\s+/)[0]));
-    }
-  }
-  for (const match of projectHtml.matchAll(/url\(\s*["']?([^"')]+\.(?:jpe?g|png|webp)(?:\?[^"')]*)?)/gi)) {
-    imageCandidates.push(normalizeProjectImage(match[1]));
-  }
-  const images = [...new Set(imageCandidates)]
-    .filter((url) => /^https:\/\/mycondopro\.ca\/wp-content\/uploads\//i.test(url))
-    .filter((url) => !/logo|icon|avatar|agent|placeholder|loading/i.test(url))
-    .slice(0, 40);
-  const propertyDetails = parseDetailPairs(sectionHtml(projectHtml, "Property Details"));
-  const pricingFees = parseDetailPairs(sectionHtml(projectHtml, "Pricing (?:&amp;|&) Fees"));
-  const depositHtml = sectionHtml(projectHtml, "Deposit Structure");
-  const amenitiesHtml = sectionHtml(projectHtml, "(?:Building )?Amenities");
-  const incentivesHtml = sectionHtml(projectHtml, "Current Incentives");
-  return {
-    images,
-    propertyDetails,
-    pricingFees,
-    depositStructure: decodeSourceText(depositHtml).slice(0, 4000),
-    amenities: parseDetailItems(amenitiesHtml).slice(0, 80),
-    currentIncentives: decodeSourceText(incentivesHtml).slice(0, 4000)
-  };
-}
-
-function stripMarkdown(value = "") {
-  return value
-    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
-    .replace(/[*_`#>|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function markdownSection(markdown, heading) {
-  const expression = new RegExp(
-    `^#{1,4}\\s+${heading}\\s*$([\\s\\S]*?)(?=^#{1,4}\\s+|(?![\\s\\S]))`,
-    "im"
-  );
-  return markdown.match(expression)?.[1] || "";
-}
-
-function parseMarkdownPairs(markdown) {
-  const pairs = {};
-  for (const line of markdown.split("\n")) {
-    const text = stripMarkdown(line.replace(/^\s*[-*+]\s+/, ""));
-    const separator = text.indexOf(":");
-    if (separator > 0) {
-      const key = text.slice(0, separator).trim();
-      const value = text.slice(separator + 1).trim();
-      if (key && value && key.length < 80) pairs[key] = value;
-    }
-  }
-  return pairs;
-}
-
-function parseMarkdownItems(markdown) {
-  return [...new Set(markdown.split("\n")
-    .map((line) => stripMarkdown(line.replace(/^\s*[-*+]\s+/, "")))
-    .filter((line) => line && line.length < 240))];
-}
-
-export function parseProjectMarkdown(markdown) {
-  const images = [...new Set(
-    [...markdown.matchAll(/!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g)]
-      .map((match) => normalizeProjectImage(match[1]))
-      .filter((url) => /wp-content\/uploads/i.test(url))
-      .filter((url) => !/logo|icon|avatar|agent|placeholder|loading/i.test(url))
-  )].slice(0, 40);
-  const propertyDetails = parseMarkdownPairs(markdownSection(markdown, "Property Details"));
-  const pricingFees = parseMarkdownPairs(markdownSection(markdown, "Pricing (?:&|&amp;) Fees"));
-  const depositStructure = stripMarkdown(
-    markdownSection(markdown, "Deposit Structure")
-  ).slice(0, 4000);
-  const amenities = parseMarkdownItems(
-    markdownSection(markdown, "(?:Building )?Amenities")
-  ).slice(0, 80);
-  const currentIncentives = stripMarkdown(
-    markdownSection(markdown, "Current Incentives")
-  ).slice(0, 4000);
-  return { images, propertyDetails, pricingFees, depositStructure, amenities, currentIncentives };
-}
-
-function hasProjectDetails(details) {
-  return details.images.length > 1
-    || Object.keys(details.propertyDetails).length > 0
-    || Object.keys(details.pricingFees).length > 0
-    || Boolean(details.depositStructure)
-    || details.amenities.length > 0
-    || Boolean(details.currentIncentives);
-}
-
-function sourceUrlForProject(row) {
-  if (row.source_url) return row.source_url;
-  const catalogIndex = Number(row.id) - CATALOG_ID_OFFSET;
-  return PROJECT_CATALOG[catalogIndex]?.sourceUrl || "";
-}
-
-async function enrichProject(database, row) {
-  const sourceUrl = sourceUrlForProject(row);
-  const storedImages = (() => {
-    try { return JSON.parse(row.images_json || "[]"); } catch { return []; }
-  })();
-  const hasStoredDetails = storedImages.length > 1
-    || row.property_details_json && row.property_details_json !== "{}"
-    || row.pricing_fees_json && row.pricing_fees_json !== "{}"
-    || row.deposit_structure
-    || row.amenities_json && row.amenities_json !== "[]"
-    || row.current_incentives;
-  if (!sourceUrl || (row.details_fetched_at && hasStoredDetails)) return row;
-  try {
-    const response = await fetch(sourceUrl, {
-      headers: {
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "accept-language": "en-CA,en;q=0.9",
-        "cache-control": "no-cache",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
-      },
-      signal: AbortSignal.timeout(6000),
-      cf: { cacheEverything: true, cacheTtl: 86400 }
-    });
-    if (!response.ok) return row;
-    const html = await response.text();
-    if (html.length > 3_000_000) return row;
-    let details = parseProjectSource(html);
-    if (!hasProjectDetails(details)) {
-      const source = new URL(sourceUrl);
-      const readerUrl = `https://r.jina.ai/http://${source.host}${source.pathname}`;
-      const readerResponse = await fetch(readerUrl, {
-        headers: { accept: "text/plain" },
-        signal: AbortSignal.timeout(8000),
-        cf: { cacheEverything: true, cacheTtl: 86400 }
-      });
-      if (readerResponse.ok) {
-        const markdown = await readerResponse.text();
-        if (markdown.length <= 3_000_000) details = parseProjectMarkdown(markdown);
-      }
-    }
-    if (!hasProjectDetails(details)) return { ...row, source_url: sourceUrl };
-    const images = details.images.length ? details.images : [row.image_url].filter(Boolean);
-    await database.prepare(
-      `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
-       pricing_fees_json = ?, deposit_structure = ?, amenities_json = ?,
-       current_incentives = ?, details_fetched_at = CURRENT_TIMESTAMP
-       WHERE id = ?`
-    ).bind(
-      sourceUrl,
-      JSON.stringify(images),
-      JSON.stringify(details.propertyDetails),
-      JSON.stringify(details.pricingFees),
-      details.depositStructure,
-      JSON.stringify(details.amenities),
-      details.currentIncentives,
-      row.id
-    ).run();
-    return {
-      ...row,
-      source_url: sourceUrl,
-      images_json: JSON.stringify(images),
-      property_details_json: JSON.stringify(details.propertyDetails),
-      pricing_fees_json: JSON.stringify(details.pricingFees),
-      deposit_structure: details.depositStructure,
-      amenities_json: JSON.stringify(details.amenities),
-      current_incentives: details.currentIncentives,
-      details_fetched_at: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error(JSON.stringify({
-      message: "Project detail enrichment failed",
-      projectId: row.id,
-      error: error instanceof Error ? error.message : String(error)
-    }));
-    return row;
-  }
 }
 
 function projectNarrative(project) {
@@ -388,6 +145,12 @@ function renderAmenities(items) {
 }
 
 async function renderProjectPage(request, env, id) {
+  if (PUBLIC_PROJECTS_PAUSED) {
+    return new Response("Project listings are temporarily unavailable.", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex, nofollow, noarchive" }
+    });
+  }
   if (!env.DB) return new Response("Project database is unavailable.", { status: 503 });
   await initializeDatabase(env.DB);
   let row = await env.DB.prepare(
@@ -395,7 +158,6 @@ async function renderProjectPage(request, env, id) {
   ).bind(id).first();
   if (!row) return new Response("Project not found.", { status: 404 });
 
-  row = await enrichProject(env.DB, row);
   const project = toProject(row);
   const canonical = `https://procity.ca/project/${project.slug}/`;
   const description = projectNarrative(project);
@@ -410,8 +172,6 @@ async function renderProjectPage(request, env, id) {
     : `${project.address}, ${project.city}, Ontario, Canada`;
   const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`;
   const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
-  const ratingValue = "5";
-  const reviewCount = "1";
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -450,21 +210,7 @@ async function renderProjectPage(request, env, id) {
         "@id": "https://procity.ca/#organization",
         name: "ProCity",
         url: "https://procity.ca/",
-        telephone: "+1-647-847-9666",
-        aggregateRating: {
-          "@type": "AggregateRating",
-          ratingValue,
-          bestRating: "5",
-          reviewCount
-        },
-        review: [
-          {
-            "@type": "Review",
-            author: { "@type": "Person", name: "CondoNow member" },
-            reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-            url: "https://condonow.com/Real-Estate-Agent/Jack-Qin2"
-          }
-        ]
+        telephone: "+1-647-847-9666"
       },
       {
         "@type": "BreadcrumbList",
@@ -485,7 +231,7 @@ async function renderProjectPage(request, env, id) {
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <title>${escapeHtml(project.title)} in ${escapeHtml(project.city)} | Pricing & Floor Plans | ProCity</title>
     <meta name="description" content="${escapeHtml(description.slice(0, 158))}">
-    <meta name="keywords" content="${escapeHtml(keywords)}"><meta name="robots" content="index,follow,max-image-preview:large">
+    <meta name="keywords" content="${escapeHtml(keywords)}"><meta name="robots" content="noindex,nofollow,noarchive">
     <link rel="canonical" href="${canonical}"><meta name="theme-color" content="#07c160">
     <meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(project.title)} | ProCity">
     <meta property="og:description" content="${escapeHtml(description.slice(0, 190))}"><meta property="og:url" content="${canonical}">
@@ -535,24 +281,13 @@ async function renderProjectPage(request, env, id) {
   });
 }
 
-async function renderSitemap(env) {
-  if (!env.DB) return new Response("Sitemap unavailable.", { status: 503 });
-  await initializeDatabase(env.DB);
-  const result = await env.DB.prepare(
-    "SELECT id, title, updated_at FROM projects WHERE published = 1 ORDER BY id"
-  ).all();
-  const baseUrls = [
-    ["https://procity.ca/", "1.0"],
-    ["https://procity.ca/projects/", "0.9"],
-    ["https://procity.ca/map/", "0.8"]
-  ].map(([loc, priority]) => `<url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority}</priority></url>`);
-  const projectUrls = result.results.map((row) => {
-    const slug = String(row.title || "project").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "project";
-    const lastmod = String(row.updated_at || "").slice(0, 10);
-    return `<url><loc>https://procity.ca/project/${slug}-${row.id}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority></url>`;
-  });
-  return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${baseUrls.join("")}${projectUrls.join("")}</urlset>`, {
-    headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" }
+function pausedSitemap() {
+  return new Response("Project sitemap is temporarily unavailable.", {
+    status: 410,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store"
+    }
   });
 }
 
@@ -574,22 +309,32 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      let response;
       if (url.pathname.startsWith("/api/")) {
-        return await routeApi(request, env, ctx);
+        response = await routeApi(request, env, ctx);
+      } else if (url.pathname === "/sitemap.xml") {
+        response = pausedSitemap();
+      } else {
+        const projectId = projectIdFromPath(url.pathname);
+        response = projectId
+          ? await renderProjectPage(request, env, projectId)
+          : await fetchStaticAsset(request, env);
       }
-      if (url.pathname === "/sitemap.xml") return await renderSitemap(env);
-      const projectId = projectIdFromPath(url.pathname);
-      if (projectId) return await renderProjectPage(request, env, projectId);
-      return await fetchStaticAsset(request, env);
+      const pausedResponse = new Response(response.body, response);
+      pausedResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      return pausedResponse;
     } catch (error) {
       console.error(JSON.stringify({
         message: "Unhandled Worker request error",
         path: url.pathname,
         error: error instanceof Error ? error.message : String(error)
       }));
-      return url.pathname.startsWith("/api/")
+      const response = url.pathname.startsWith("/api/")
         ? json({ error: "Internal server error." }, 500)
         : new Response("Internal server error.", { status: 500 });
+      const pausedResponse = new Response(response.body, response);
+      pausedResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      return pausedResponse;
     }
   }
 };
