@@ -1,4 +1,4 @@
-import { json } from "../functions/_lib/http.js";
+import { json, toProject } from "../functions/_lib/http.js";
 import { onRequestGet as getConfig } from "../functions/api/config.js";
 import { onRequestGet as getProjects } from "../functions/api/projects.js";
 import {
@@ -82,6 +82,191 @@ async function routeApi(request, env, ctx) {
   return json({ error: "API route not found." }, 404);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  })[character]);
+}
+
+function projectIdFromPath(pathname) {
+  const match = pathname.match(/^\/project\/[^/]*?-(\d+)\/?$/);
+  return match ? Number(match[1]) : null;
+}
+
+function projectNarrative(project) {
+  const builder = project.builder || "an established development team";
+  const occupancy = project.occupancy
+    ? `The currently listed occupancy timing is ${project.occupancy}.`
+    : "Occupancy timing is available upon request and should be confirmed before purchase.";
+  return `${project.title} is a ${project.type.toLowerCase()} opportunity by ${builder} at ${project.address}. Its ${project.city} location gives buyers a practical base for comparing local transit, everyday amenities and the surrounding community. ${occupancy} ProCity can provide the latest pricing, floor plans, incentives and availability for independent review.`;
+}
+
+function siteHeader() {
+  return `<header class="site-header">
+    <a class="brand" href="/" aria-label="ProCity home"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity" width="1650" height="488"></span></a>
+    <nav class="desktop-nav" aria-label="Main navigation"><a href="/projects/">Projects</a><a href="/map/">Map Search</a><a href="/#areas">Cities</a><a href="/#why-procity">Why ProCity</a></nav>
+    <div class="header-actions"><a class="phone-link" href="tel:+16478479666">647 847 9666</a><a class="button button-small" href="#contact">Get VIP Access</a></div>
+  </header>`;
+}
+
+function siteFooter() {
+  return `<footer><a class="brand brand-footer" href="/"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity"></span></a>
+    <p>Toronto &amp; GTA pre-construction real estate specialists.</p>
+    <div class="footer-links"><a href="/projects/">Projects</a><a href="/map/">Map</a><a href="/#areas">Cities</a><a href="tel:+16478479666">Contact</a></div>
+    <div class="legal"><span>© ${new Date().getFullYear()} ProCity. All rights reserved.</span><span>GO WITH THE PRO.</span></div></footer>`;
+}
+
+async function renderProjectPage(request, env, id) {
+  if (!env.DB) return new Response("Project database is unavailable.", { status: 503 });
+  await initializeDatabase(env.DB);
+  const row = await env.DB.prepare(
+    "SELECT * FROM projects WHERE published = 1 AND id = ?"
+  ).bind(id).first();
+  if (!row) return new Response("Project not found.", { status: 404 });
+
+  const project = toProject(row);
+  const canonical = `https://procity.ca/project/${project.slug}/`;
+  const description = projectNarrative(project);
+  const price = project.price
+    ? `$${Number(project.price).toLocaleString("en-CA")}`
+    : "Contact for pricing";
+  const image = project.image || "https://procity.ca/procity-logo.png";
+  const ratingValue = "5";
+  const reviewCount = "1";
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "RealEstateListing",
+        "@id": `${canonical}#listing`,
+        url: canonical,
+        name: project.title,
+        description,
+        image: [image],
+        datePosted: row.updated_at,
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "CAD",
+          ...(project.price ? { price: project.price } : {}),
+          availability: "https://schema.org/InStock"
+        },
+        mainEntity: {
+          "@type": project.type === "Condo" ? "ApartmentComplex" : "Residence",
+          name: project.title,
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: project.address,
+            addressLocality: project.city,
+            addressRegion: "ON",
+            addressCountry: "CA"
+          },
+          ...(project.latitude && project.longitude ? {
+            geo: { "@type": "GeoCoordinates", latitude: project.latitude, longitude: project.longitude }
+          } : {})
+        },
+        provider: { "@id": "https://procity.ca/#organization" }
+      },
+      {
+        "@type": "RealEstateAgent",
+        "@id": "https://procity.ca/#organization",
+        name: "ProCity",
+        url: "https://procity.ca/",
+        telephone: "+1-647-847-9666",
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue,
+          bestRating: "5",
+          reviewCount
+        },
+        review: [
+          {
+            "@type": "Review",
+            author: { "@type": "Person", name: "CondoNow member" },
+            reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
+            reviewBody: "Best Agent for Pre-construction",
+            url: "https://condonow.com/Real-Estate-Agent/Jack-Qin2"
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: "https://procity.ca/" },
+          { "@type": "ListItem", position: 2, name: "Projects", item: "https://procity.ca/projects/" },
+          { "@type": "ListItem", position: 3, name: project.title, item: canonical }
+        ]
+      }
+    ]
+  };
+  const keywords = [
+    project.title, `${project.city} pre construction`, `${project.city} condos`,
+    project.builder, project.type, "ProCity"
+  ].filter(Boolean).join(", ");
+
+  return new Response(`<!doctype html><html lang="en-CA"><head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${escapeHtml(project.title)} in ${escapeHtml(project.city)} | Pricing & Floor Plans | ProCity</title>
+    <meta name="description" content="${escapeHtml(description.slice(0, 158))}">
+    <meta name="keywords" content="${escapeHtml(keywords)}"><meta name="robots" content="index,follow,max-image-preview:large">
+    <link rel="canonical" href="${canonical}"><meta name="theme-color" content="#07c160">
+    <meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(project.title)} | ProCity">
+    <meta property="og:description" content="${escapeHtml(description.slice(0, 190))}"><meta property="og:url" content="${canonical}">
+    <meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">
+    <link rel="stylesheet" href="/styles.css?v=20260728-1"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
+  </head><body>${siteHeader()}<main>
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/projects/">Projects</a><span>›</span><span>${escapeHtml(project.title)}</span></nav>
+    <section class="project-hero-detail">
+      <div class="project-hero-image">${project.image ? `<img src="${escapeHtml(project.image)}" alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}">` : `<div class="image-placeholder">PROCITY</div>`}</div>
+      <div class="project-hero-copy"><p class="eyebrow">${escapeHtml(project.area)} · ${escapeHtml(project.city)}</p><h1>${escapeHtml(project.title)}</h1>
+        <p class="project-lead">${escapeHtml(description)}</p><a class="button" href="#contact">Request pricing &amp; floor plans</a>
+      </div>
+    </section>
+    <section class="project-detail-grid section">
+      <div><p class="eyebrow">PROJECT OVERVIEW</p><h2>Key project information</h2>
+        <div class="detail-facts">
+          <div><span>Starting price</span><strong>${escapeHtml(price)}</strong></div>
+          <div><span>Property type</span><strong>${escapeHtml(project.type)}</strong></div>
+          <div><span>Developer</span><strong>${escapeHtml(project.builder || "Contact ProCity")}</strong></div>
+          <div><span>Occupancy</span><strong>${escapeHtml(project.occupancy || "To be confirmed")}</strong></div>
+          <div><span>Sales status</span><strong>${escapeHtml(project.badge || "Now registering")}</strong></div>
+          <div><span>Location</span><strong>${escapeHtml(project.address)}</strong></div>
+        </div>
+        <article class="project-copy"><h2>About ${escapeHtml(project.title)}</h2><p>${escapeHtml(description)}</p>
+          <h2>Location and neighbourhood</h2><p>Located in ${escapeHtml(project.area)}, this project offers a ${escapeHtml(project.city)} address to evaluate alongside nearby transportation, schools, shopping, parks and employment destinations. Ask ProCity for a current location review tailored to your needs.</p>
+          <h2>Pricing, floor plans and incentives</h2><p>Availability, deposits, maintenance fees, parking, locker options and builder incentives can change. Request the latest sales package before making a decision.</p>
+        </article>
+      </div>
+      <aside class="project-sidebar" id="contact"><p class="eyebrow">VIP INFORMATION</p><h2>Get the current package</h2><p>Ask for the latest prices, floor plans, incentives and availability.</p>
+        <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
+      </aside>
+    </section>
+    <section class="review-band"><div><p class="eyebrow">VERIFIED CLIENT REVIEW</p><strong>5 / 5</strong><span>Published on CondoNow</span></div><blockquote>“Best Agent for Pre-construction”<cite>Public review of Jack Qin · CondoNow</cite></blockquote></section>
+  </main>${siteFooter()}<script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" }
+  });
+}
+
+async function renderSitemap(env) {
+  if (!env.DB) return new Response("Sitemap unavailable.", { status: 503 });
+  await initializeDatabase(env.DB);
+  const result = await env.DB.prepare(
+    "SELECT id, title, updated_at FROM projects WHERE published = 1 ORDER BY id"
+  ).all();
+  const baseUrls = [
+    ["https://procity.ca/", "1.0"],
+    ["https://procity.ca/projects/", "0.9"],
+    ["https://procity.ca/map/", "0.8"]
+  ].map(([loc, priority]) => `<url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority}</priority></url>`);
+  const projectUrls = result.results.map((row) => {
+    const slug = String(row.title || "project").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "project";
+    const lastmod = String(row.updated_at || "").slice(0, 10);
+    return `<url><loc>https://procity.ca/project/${slug}-${row.id}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority></url>`;
+  });
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${baseUrls.join("")}${projectUrls.join("")}</urlset>`, {
+    headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" }
+  });
+}
+
 async function fetchStaticAsset(request, env) {
   const response = await env.ASSETS.fetch(request);
   if (response.status !== 404) return response;
@@ -103,6 +288,9 @@ export default {
       if (url.pathname.startsWith("/api/")) {
         return await routeApi(request, env, ctx);
       }
+      if (url.pathname === "/sitemap.xml") return await renderSitemap(env);
+      const projectId = projectIdFromPath(url.pathname);
+      if (projectId) return await renderProjectPage(request, env, projectId);
       return await fetchStaticAsset(request, env);
     } catch (error) {
       console.error(JSON.stringify({
