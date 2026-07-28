@@ -1,3 +1,5 @@
+import PROJECT_CATALOG from "./project-data.json" with { type: "json" };
+
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +29,9 @@ const SCHEMA_STATEMENTS = [
     ON projects (latitude, longitude)`
 ];
 
+const CATALOG_BATCH_SIZE = 100;
+const CATALOG_ID_OFFSET = 100000;
+
 const STARTER_PROJECTS = [
   [1, "Harbourline Residences", "Toronto", "East Bayfront", "25 Queens Quay E, Toronto, ON", "Condo", "A curated ProCity opportunity", 699000, "2029", "FEATURED", "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1400&q=85", "Contemporary waterfront living with quick access to downtown, transit, and the lake.", 43.6437, -79.3717, 1, 1],
   [2, "The Junction House", "Toronto", "The Junction", "2853 Dundas St W, Toronto, ON", "Condo", "A curated ProCity opportunity", 759000, "2028", "NEW RELEASE", "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1400&q=85", "Boutique urban residences in one of Toronto's most character-rich neighbourhoods.", 43.6654, -79.4654, 0, 1],
@@ -46,7 +51,6 @@ const INSERT_STARTER_PROJECT = `INSERT OR IGNORE INTO projects (
 export async function initializeDatabase(database) {
   try {
     await database.prepare("SELECT 1 FROM projects LIMIT 1").first();
-    return;
   } catch (error) {
     if (!String(error?.message || error).toLowerCase().includes("no such table")) {
       throw error;
@@ -56,9 +60,73 @@ export async function initializeDatabase(database) {
   await database.batch(
     SCHEMA_STATEMENTS.map((statement) => database.prepare(statement))
   );
-  await database.batch(
-    STARTER_PROJECTS.map((project) =>
-      database.prepare(INSERT_STARTER_PROJECT).bind(...project)
-    )
+  await syncProjectCatalog(database);
+}
+
+export async function syncProjectCatalog(database) {
+  await database.prepare(
+    `CREATE TABLE IF NOT EXISTS catalog_import_state (
+      source TEXT PRIMARY KEY,
+      cursor INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`
+  ).run();
+
+  const source = "mycondopro-public-directory";
+  const state = await database.prepare(
+    "SELECT cursor, total FROM catalog_import_state WHERE source = ?"
+  ).bind(source).first();
+  let cursor = Number(state?.cursor || 0);
+  if (Number(state?.total || 0) !== PROJECT_CATALOG.length) cursor = 0;
+  if (cursor >= PROJECT_CATALOG.length) return {
+    imported: PROJECT_CATALOG.length,
+    total: PROJECT_CATALOG.length,
+    complete: true
+  };
+
+  const batch = PROJECT_CATALOG.slice(cursor, cursor + CATALOG_BATCH_SIZE);
+  const statement = database.prepare(
+    `INSERT OR REPLACE INTO projects (
+      id, title, city, area, address, type, builder, price, occupancy, badge,
+      image_url, description, latitude, longitude, featured, published
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
+  await database.batch(batch.map((project, index) => statement.bind(
+    CATALOG_ID_OFFSET + cursor + index,
+    project.title,
+    project.city,
+    project.area,
+    project.address,
+    project.type,
+    project.builder,
+    project.price,
+    project.occupancy,
+    project.badge,
+    project.imageUrl,
+    project.description,
+    project.latitude ?? 0,
+    project.longitude ?? 0,
+    project.featured ? 1 : 0,
+    project.published ? 1 : 0
+  )));
+
+  cursor += batch.length;
+  await database.prepare(
+    `INSERT INTO catalog_import_state (source, cursor, total, updated_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(source) DO UPDATE SET
+       cursor = excluded.cursor,
+       total = excluded.total,
+       updated_at = CURRENT_TIMESTAMP`
+  ).bind(source, cursor, PROJECT_CATALOG.length).run();
+
+  if (cursor >= PROJECT_CATALOG.length) {
+    await database.prepare("DELETE FROM projects WHERE id BETWEEN 1 AND 8").run();
+  }
+  return {
+    imported: cursor,
+    total: PROJECT_CATALOG.length,
+    complete: cursor >= PROJECT_CATALOG.length
+  };
 }

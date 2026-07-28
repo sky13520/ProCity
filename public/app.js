@@ -142,8 +142,10 @@ const state = {
   type: "all",
   query: "",
   sort: "featured",
-  mapBounds: null
+  mapBounds: null,
+  page: 1
 };
+const PAGE_SIZE = 24;
 let projects = fallbackProjects;
 let map;
 let infoWindow;
@@ -187,7 +189,9 @@ function money(value) {
 function projectPosition(project) {
   const lat = Number(project.latitude);
   const lng = Number(project.longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+    ? { lat, lng }
+    : null;
 }
 
 function setMapView(position, zoom) {
@@ -223,10 +227,14 @@ function heartIcon() {
 
 function render() {
   const items = filteredProjects();
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  state.page = Math.min(state.page, totalPages);
+  const start = (state.page - 1) * PAGE_SIZE;
+  const visibleItems = items.slice(start, start + PAGE_SIZE);
   count.textContent = items.length;
   grid.hidden = items.length === 0;
   emptyState.hidden = items.length !== 0;
-  grid.innerHTML = items.map((project) => {
+  grid.innerHTML = visibleItems.map((project) => {
     const image = safeImage(project.image);
     return `
       <article class="property-card" tabindex="0" data-id="${Number(project.id)}">
@@ -250,10 +258,33 @@ function render() {
       </article>`;
   }).join("");
   updateMarkers(items);
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  let pagination = document.querySelector("#project-pagination");
+  if (!pagination) {
+    pagination = document.createElement("nav");
+    pagination.id = "project-pagination";
+    pagination.className = "project-pagination";
+    pagination.setAttribute("aria-label", "Project pages");
+    grid.insertAdjacentElement("afterend", pagination);
+  }
+  if (totalPages <= 1) {
+    pagination.hidden = true;
+    pagination.innerHTML = "";
+    return;
+  }
+  pagination.hidden = false;
+  pagination.innerHTML = `
+    <button type="button" data-page="${state.page - 1}" ${state.page === 1 ? "disabled" : ""}>Previous</button>
+    <span>Page ${state.page} of ${totalPages}</span>
+    <button type="button" data-page="${state.page + 1}" ${state.page === totalPages ? "disabled" : ""}>Next</button>`;
 }
 
 function setCity(city) {
   state.city = city;
+  state.page = 1;
   document.querySelectorAll("[data-city]").forEach((button) => {
     button.classList.toggle("active", button.dataset.city === city);
   });
@@ -266,6 +297,7 @@ function resetFilters() {
   state.query = "";
   state.sort = "featured";
   state.mapBounds = null;
+  state.page = 1;
   document.querySelector("#hero-query").value = "";
   document.querySelector("#hero-type").value = "all";
   document.querySelector("#sort-projects").value = "featured";
@@ -275,6 +307,14 @@ function resetFilters() {
   }
   setCity("all");
 }
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("#project-pagination [data-page]");
+  if (!button || button.disabled) return;
+  state.page = Math.max(1, Number(button.dataset.page) || 1);
+  render();
+  grid.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 function openProject(id) {
   const project = projects.find((item) => Number(item.id) === Number(id));
