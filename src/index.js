@@ -134,28 +134,56 @@ function parseDetailPairs(html) {
   return pairs;
 }
 
-function normalizeProjectImage(url) {
-  return url
+function parseDetailItems(html) {
+  const items = [];
+  for (const match of html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)) {
+    const text = decodeSourceText(match[1]);
+    if (text && text.length < 240) items.push(text);
+  }
+  return [...new Set(items)];
+}
+
+function normalizeProjectImage(url, baseUrl = "https://mycondopro.ca") {
+  let normalized = decodeSourceText(String(url || ""))
+    .replace(/\\\//g, "/")
+    .replace(/^['"]|['"]$/g, "");
+  if (normalized.startsWith("//")) normalized = `https:${normalized}`;
+  if (normalized.startsWith("/")) normalized = `${baseUrl}${normalized}`;
+  return normalized
     .replace(/-\d+x\d+(?=\.[a-z]{3,4}(?:\?|$))/i, "")
     .replace(/&amp;/g, "&");
 }
 
-function parseProjectSource(html) {
+export function parseProjectSource(html) {
   const projectHtml = html.split(/More Projects in this area/i)[0];
-  const imageCandidates = [
-    ...projectHtml.matchAll(/<(?:img|source)[^>]+(?:src|data-src|data-lazy-src)="(https:\/\/mycondopro\.ca\/wp-content\/uploads\/[^"]+)"/gi)
-  ].map((match) => normalizeProjectImage(match[1]));
+  const imageCandidates = [];
+  for (const match of projectHtml.matchAll(/(?:src|data-src|data-lazy-src|data-bg|href)\s*=\s*["']([^"']+\.(?:jpe?g|png|webp)(?:\?[^"']*)?)["']/gi)) {
+    imageCandidates.push(normalizeProjectImage(match[1]));
+  }
+  for (const match of projectHtml.matchAll(/(?:srcset|data-srcset)\s*=\s*["']([^"']+)["']/gi)) {
+    for (const candidate of match[1].split(",")) {
+      imageCandidates.push(normalizeProjectImage(candidate.trim().split(/\s+/)[0]));
+    }
+  }
+  for (const match of projectHtml.matchAll(/url\(\s*["']?([^"')]+\.(?:jpe?g|png|webp)(?:\?[^"')]*)?)/gi)) {
+    imageCandidates.push(normalizeProjectImage(match[1]));
+  }
   const images = [...new Set(imageCandidates)]
+    .filter((url) => /^https:\/\/mycondopro\.ca\/wp-content\/uploads\//i.test(url))
     .filter((url) => !/logo|icon|avatar|agent|placeholder|loading/i.test(url))
     .slice(0, 40);
   const propertyDetails = parseDetailPairs(sectionHtml(projectHtml, "Property Details"));
   const pricingFees = parseDetailPairs(sectionHtml(projectHtml, "Pricing (?:&amp;|&) Fees"));
   const depositHtml = sectionHtml(projectHtml, "Deposit Structure");
+  const amenitiesHtml = sectionHtml(projectHtml, "(?:Building )?Amenities");
+  const incentivesHtml = sectionHtml(projectHtml, "Current Incentives");
   return {
     images,
     propertyDetails,
     pricingFees,
-    depositStructure: decodeSourceText(depositHtml).slice(0, 4000)
+    depositStructure: decodeSourceText(depositHtml).slice(0, 4000),
+    amenities: parseDetailItems(amenitiesHtml).slice(0, 80),
+    currentIncentives: decodeSourceText(incentivesHtml).slice(0, 4000)
   };
 }
 
@@ -170,7 +198,7 @@ function stripMarkdown(value = "") {
 
 function markdownSection(markdown, heading) {
   const expression = new RegExp(
-    `^#{1,4}\\s+${heading}\\s*$([\\s\\S]*?)(?=^#{1,4}\\s+|$)`,
+    `^#{1,4}\\s+${heading}\\s*$([\\s\\S]*?)(?=^#{1,4}\\s+|(?![\\s\\S]))`,
     "im"
   );
   return markdown.match(expression)?.[1] || "";
@@ -190,7 +218,13 @@ function parseMarkdownPairs(markdown) {
   return pairs;
 }
 
-function parseProjectMarkdown(markdown) {
+function parseMarkdownItems(markdown) {
+  return [...new Set(markdown.split("\n")
+    .map((line) => stripMarkdown(line.replace(/^\s*[-*+]\s+/, "")))
+    .filter((line) => line && line.length < 240))];
+}
+
+export function parseProjectMarkdown(markdown) {
   const images = [...new Set(
     [...markdown.matchAll(/!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g)]
       .map((match) => normalizeProjectImage(match[1]))
@@ -202,14 +236,22 @@ function parseProjectMarkdown(markdown) {
   const depositStructure = stripMarkdown(
     markdownSection(markdown, "Deposit Structure")
   ).slice(0, 4000);
-  return { images, propertyDetails, pricingFees, depositStructure };
+  const amenities = parseMarkdownItems(
+    markdownSection(markdown, "(?:Building )?Amenities")
+  ).slice(0, 80);
+  const currentIncentives = stripMarkdown(
+    markdownSection(markdown, "Current Incentives")
+  ).slice(0, 4000);
+  return { images, propertyDetails, pricingFees, depositStructure, amenities, currentIncentives };
 }
 
 function hasProjectDetails(details) {
   return details.images.length > 1
     || Object.keys(details.propertyDetails).length > 0
     || Object.keys(details.pricingFees).length > 0
-    || Boolean(details.depositStructure);
+    || Boolean(details.depositStructure)
+    || details.amenities.length > 0
+    || Boolean(details.currentIncentives);
 }
 
 function sourceUrlForProject(row) {
@@ -226,7 +268,9 @@ async function enrichProject(database, row) {
   const hasStoredDetails = storedImages.length > 1
     || row.property_details_json && row.property_details_json !== "{}"
     || row.pricing_fees_json && row.pricing_fees_json !== "{}"
-    || row.deposit_structure;
+    || row.deposit_structure
+    || row.amenities_json && row.amenities_json !== "[]"
+    || row.current_incentives;
   if (!sourceUrl || (row.details_fetched_at && hasStoredDetails)) return row;
   try {
     const response = await fetch(sourceUrl, {
@@ -260,7 +304,8 @@ async function enrichProject(database, row) {
     const images = details.images.length ? details.images : [row.image_url].filter(Boolean);
     await database.prepare(
       `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
-       pricing_fees_json = ?, deposit_structure = ?, details_fetched_at = CURRENT_TIMESTAMP
+       pricing_fees_json = ?, deposit_structure = ?, amenities_json = ?,
+       current_incentives = ?, details_fetched_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     ).bind(
       sourceUrl,
@@ -268,6 +313,8 @@ async function enrichProject(database, row) {
       JSON.stringify(details.propertyDetails),
       JSON.stringify(details.pricingFees),
       details.depositStructure,
+      JSON.stringify(details.amenities),
+      details.currentIncentives,
       row.id
     ).run();
     return {
@@ -277,6 +324,8 @@ async function enrichProject(database, row) {
       property_details_json: JSON.stringify(details.propertyDetails),
       pricing_fees_json: JSON.stringify(details.pricingFees),
       deposit_structure: details.depositStructure,
+      amenities_json: JSON.stringify(details.amenities),
+      current_incentives: details.currentIncentives,
       details_fetched_at: new Date().toISOString()
     };
   } catch (error) {
@@ -331,6 +380,13 @@ function renderDetailList(details) {
   ).join("")}</dl>`;
 }
 
+function renderAmenities(items) {
+  if (!items?.length) return "";
+  return `<ul class="amenities-grid">${items.map((item) =>
+    `<li><span aria-hidden="true">✓</span>${escapeHtml(item)}</li>`
+  ).join("")}</ul>`;
+}
+
 async function renderProjectPage(request, env, id) {
   if (!env.DB) return new Response("Project database is unavailable.", { status: 503 });
   await initializeDatabase(env.DB);
@@ -348,6 +404,12 @@ async function renderProjectPage(request, env, id) {
     : "Contact for pricing";
   const projectImages = [...new Set([...project.images, project.image].filter(Boolean))].slice(0, 40);
   const image = projectImages[0] || "https://procity.ca/procity-logo.png";
+  const hasCoordinates = Number(project.latitude) !== 0 && Number(project.longitude) !== 0;
+  const mapQuery = hasCoordinates
+    ? `${project.latitude},${project.longitude}`
+    : `${project.address}, ${project.city}, Ontario, Canada`;
+  const mapEmbed = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`;
+  const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
   const ratingValue = "5";
   const reviewCount = "1";
   const schema = {
@@ -457,6 +519,12 @@ async function renderProjectPage(request, env, id) {
         ${Object.keys(project.propertyDetails).length ? `<section class="project-data-section"><h2>Property Details</h2>${renderDetailList(project.propertyDetails)}</section>` : ""}
         ${Object.keys(project.pricingFees).length ? `<section class="project-data-section"><h2>Pricing &amp; Fees</h2>${renderDetailList(project.pricingFees)}</section>` : ""}
         ${project.depositStructure ? `<section class="project-data-section"><h2>Deposit Structure</h2><div class="deposit-copy">${escapeHtml(project.depositStructure)}</div></section>` : ""}
+        ${project.amenities.length ? `<section class="project-data-section"><h2>Building Amenities</h2>${renderAmenities(project.amenities)}</section>` : ""}
+        ${project.currentIncentives ? `<section class="project-data-section"><h2>Current Incentives</h2><div class="deposit-copy">${escapeHtml(project.currentIncentives)}</div></section>` : ""}
+        <section class="project-data-section project-location">
+          <div class="section-heading-row"><div><p class="eyebrow">PROJECT LOCATION</p><h2>${escapeHtml(project.address)}</h2></div><a href="${escapeHtml(mapLink)}" target="_blank" rel="noopener">Open in Google Maps ↗</a></div>
+          <div class="project-map-frame"><iframe title="Map showing ${escapeHtml(project.title)} at ${escapeHtml(project.address)}" src="${escapeHtml(mapEmbed)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>
+        </section>
       </div>
       <aside class="project-sidebar" id="contact"><p class="eyebrow">VIP INFORMATION</p><h2>Get the current package</h2><p>Ask for the latest prices, floor plans, incentives and availability.</p>
         <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
