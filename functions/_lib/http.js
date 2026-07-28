@@ -144,6 +144,8 @@ export function toProject(row) {
     propertyDetails: parseStoredJson(row.property_details_json, {}),
     pricingFees: parseStoredJson(row.pricing_fees_json, {}),
     depositStructure: row.deposit_structure || "",
+    amenities: parseStoredJson(row.amenities_json, []),
+    currentIncentives: row.current_incentives || "",
     latitude: row.latitude,
     longitude: row.longitude,
     featured: Boolean(row.featured),
