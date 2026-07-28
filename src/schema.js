@@ -38,6 +38,8 @@ const DETAIL_COLUMNS = {
   property_details_json: "TEXT NOT NULL DEFAULT '{}'",
   pricing_fees_json: "TEXT NOT NULL DEFAULT '{}'",
   deposit_structure: "TEXT NOT NULL DEFAULT ''",
+  amenities_json: "TEXT NOT NULL DEFAULT '[]'",
+  current_incentives: "TEXT NOT NULL DEFAULT ''",
   details_fetched_at: "TEXT"
 };
 
