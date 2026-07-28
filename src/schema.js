@@ -1,4 +1,5 @@
 import PROJECT_CATALOG from "./project-data.json" with { type: "json" };
+import PROJECT_DETAILS from "./project-details.json" with { type: "json" };
 
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS projects (
@@ -79,6 +80,50 @@ export async function initializeDatabase(database) {
     }
   }
   await syncProjectCatalog(database);
+  await syncProjectDetails(database);
+}
+
+async function syncProjectDetails(database) {
+  if (!PROJECT_DETAILS.length) return;
+  const source = "procity-project-details-v1";
+  await database.prepare(
+    `CREATE TABLE IF NOT EXISTS content_import_state (
+      source TEXT PRIMARY KEY,
+      cursor INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`
+  ).run();
+  const state = await database.prepare(
+    "SELECT cursor, total FROM content_import_state WHERE source = ?"
+  ).bind(source).first();
+  let cursor = Number(state?.cursor || 0);
+  if (Number(state?.total || 0) !== PROJECT_DETAILS.length) cursor = 0;
+  if (cursor >= PROJECT_DETAILS.length) return;
+  const batch = PROJECT_DETAILS.slice(cursor, cursor + 25);
+  const statement = database.prepare(
+    `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
+      pricing_fees_json = ?, deposit_structure = ?, amenities_json = ?,
+      current_incentives = ?, details_fetched_at = CURRENT_TIMESTAMP
+     WHERE id = ?`
+  );
+  await database.batch(batch.map((details) => statement.bind(
+    details.sourceUrl,
+    JSON.stringify(details.images || []),
+    JSON.stringify(details.propertyDetails || {}),
+    JSON.stringify(details.pricingFees || {}),
+    details.depositStructure || "",
+    JSON.stringify(details.amenities || []),
+    details.currentIncentives || "",
+    details.id
+  )));
+  cursor += batch.length;
+  await database.prepare(
+    `INSERT INTO content_import_state (source, cursor, total, updated_at)
+     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(source) DO UPDATE SET cursor = excluded.cursor,
+       total = excluded.total, updated_at = CURRENT_TIMESTAMP`
+  ).bind(source, cursor, PROJECT_DETAILS.length).run();
 }
 
 export async function syncProjectCatalog(database) {
