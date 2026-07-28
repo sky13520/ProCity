@@ -118,6 +118,13 @@ export const PROJECT_COLUMNS = `
 `;
 
 export function toProject(row) {
+  const slug = String(row.title || "project")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72) || "project";
   return {
     id: row.id,
     title: row.title,
@@ -135,6 +142,7 @@ export function toProject(row) {
     latitude: row.latitude,
     longitude: row.longitude,
     featured: Boolean(row.featured),
-    published: Boolean(row.published)
+    published: Boolean(row.published),
+    slug: `${slug}-${row.id}`
   };
 }
