@@ -1,351 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta
-      name="description"
-      content="Explore new condos and pre-construction homes across Toronto and the GTA with ProCity Realty."
-    >
-    <meta name="theme-color" content="#07c160">
-    <title>Toronto Pre-Construction Condos | ProCity Realty</title>
-    <link rel="preconnect" href="https://images.unsplash.com">
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    >
-    <link rel="stylesheet" href="./styles.css?v=20260727-4">
-  </head>
-  <body>
-    <header class="site-header">
-      <a class="brand" href="#top" aria-label="ProCity Realty home">
-        <span class="brand-logo">
-          <img
-            src="./procity-logo.png?v=20260727-3"
-            alt="ProCity"
-            width="1650"
-            height="488"
-          >
-        </span>
-      </a>
-
-      <nav class="desktop-nav" aria-label="Main navigation">
-        <a href="#properties">New Condos</a>
-        <a href="#areas">Neighbourhoods</a>
-        <a href="#why-procity">Why ProCity</a>
-        <a href="#insights">Insights</a>
-      </nav>
-
-      <div class="header-actions">
-        <a class="phone-link" href="tel:+16478479666">647&nbsp;847&nbsp;9666</a>
-        <a class="button button-small" href="#contact">Get VIP Access</a>
-        <button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false">
-          <span></span><span></span>
-        </button>
+<!doctype html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Toronto & GTA Pre-Construction Condos | ProCity</title>
+  <meta name="description" content="Discover featured pre-construction condos and new homes across Toronto and the GTA. Compare projects and get VIP pricing with ProCity.">
+  <meta name="keywords" content="Toronto pre construction condos, GTA new condos, Toronto new homes, VIP condo pricing, ProCity">
+  <meta name="robots" content="index,follow,max-image-preview:large"><link rel="canonical" href="https://procity.ca/">
+  <meta name="theme-color" content="#07c160"><meta property="og:type" content="website"><meta property="og:title" content="Toronto & GTA Pre-Construction Condos | ProCity">
+  <meta property="og:description" content="Featured new condo and home opportunities across the GTA, with expert guidance from ProCity."><meta property="og:url" content="https://procity.ca/">
+  <meta property="og:image" content="https://procity.ca/procity-logo.png"><link rel="stylesheet" href="/styles.css?v=20260728-1">
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"RealEstateAgent","@id":"https://procity.ca/#organization","name":"ProCity","url":"https://procity.ca/","logo":"https://procity.ca/procity-logo.png","telephone":"+1-647-847-9666","areaServed":["Toronto","Greater Toronto Area","Ontario"],"aggregateRating":{"@type":"AggregateRating","ratingValue":"5","bestRating":"5","reviewCount":"1"},"review":{"@type":"Review","author":{"@type":"Person","name":"CondoNow member"},"reviewRating":{"@type":"Rating","ratingValue":"5","bestRating":"5"},"reviewBody":"Best Agent for Pre-construction","url":"https://condonow.com/Real-Estate-Agent/Jack-Qin2"}},{"@type":"WebSite","@id":"https://procity.ca/#website","url":"https://procity.ca/","name":"ProCity","publisher":{"@id":"https://procity.ca/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://procity.ca/projects/?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ProCity home"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity" width="1650" height="488"></span></a>
+    <nav class="desktop-nav"><a href="/projects/">Projects</a><a href="/map/">Map Search</a><a href="#areas">Cities</a><a href="#why-procity">Why ProCity</a></nav>
+    <div class="header-actions"><a class="phone-link" href="tel:+16478479666">647 847 9666</a><a class="button button-small" href="#contact">Get VIP Access</a></div>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="hero-art"></div><div class="hero-content"><p class="eyebrow">TORONTO &amp; GTA PRE-CONSTRUCTION</p>
+      <h1>Find your place<br>before everyone else.</h1><p class="hero-intro">Curated opportunities, local market knowledge and direct access to the projects shaping the GTA.</p>
+      <form class="hero-search" action="/projects/"><label class="search-field"><span>Where are you looking?</span><input name="q" type="search" placeholder="City, neighbourhood or project"></label>
+      <label class="search-field"><span>Property type</span><select name="type"><option value="all">All properties</option><option>Condo</option><option>Townhome</option><option>Detached</option></select></label>
+      <button class="search-submit">Search projects →</button></form></div>
+    </section>
+    <section class="trust-strip"><span>VIP PROJECT ACCESS</span><i></i><span>BUILDER INCENTIVES</span><i></i><span>GTA MARKET EXPERTS</span><i></i><span>END-TO-END GUIDANCE</span></section>
+    <section class="section home-featured"><div class="section-heading"><div><p class="eyebrow">FEATURED OPPORTUNITIES</p><h2>Projects worth knowing.</h2></div><a class="text-link" href="/projects/">View all projects ↗</a></div>
+      <div class="property-grid featured-grid" id="featured-projects"><p>Loading featured projects…</p></div>
+    </section>
+    <section class="home-choices"><a href="/projects/"><span>Browse the directory</span><strong>Search and compare all projects</strong><b>Explore list →</b></a><a href="/map/"><span>Explore by location</span><strong>Use the interactive project map</strong><b>Open map →</b></a></section>
+    <section class="area-section section" id="areas"><div class="section-heading compact"><div><p class="eyebrow">EXPLORE BY LOCATION</p><h2>Find projects by city.</h2></div></div>
+      <div class="city-link-grid">
+        <a href="/projects/?city=Toronto">Toronto</a><a href="/projects/?city=North%20York">North York</a><a href="/projects/?city=Etobicoke">Etobicoke</a><a href="/projects/?city=Scarborough">Scarborough</a>
+        <a href="/projects/?city=Vaughan">Vaughan</a><a href="/projects/?city=Markham">Markham</a><a href="/projects/?city=Richmond%20Hill">Richmond Hill</a><a href="/projects/?city=Mississauga">Mississauga</a>
+        <a href="/projects/?city=Brampton">Brampton</a><a href="/projects/?city=Oakville">Oakville</a><a href="/projects/?city=Burlington">Burlington</a><a href="/projects/?city=Hamilton">Hamilton</a>
+        <a href="/projects/?city=Pickering">Pickering</a><a href="/projects/?city=Whitby">Whitby</a><a href="/projects/?city=Oshawa">Oshawa</a><a href="/projects/">All cities →</a>
       </div>
-    </header>
-
-    <main id="top">
-      <section class="hero">
-        <div class="hero-art" aria-hidden="true">
-          <div class="hero-gradient"></div>
-        </div>
-        <div class="hero-content">
-          <p class="eyebrow light">TORONTO &amp; GTA PRE-CONSTRUCTION</p>
-          <h1>Find your place<br>before everyone else.</h1>
-          <p class="hero-intro">
-            Curated new condo opportunities, local market knowledge, and direct
-            access to the projects shaping the GTA.
-          </p>
-
-          <form class="hero-search" id="hero-search">
-            <label class="search-field">
-              <span>Where are you looking?</span>
-              <input
-                id="hero-query"
-                type="search"
-                placeholder="City, neighbourhood or project"
-              >
-            </label>
-            <label class="search-field">
-              <span>Property type</span>
-              <select id="hero-type">
-                <option value="all">All properties</option>
-                <option value="Condo">Condo</option>
-                <option value="Townhome">Townhome</option>
-              </select>
-            </label>
-            <button class="search-submit" type="submit" aria-label="Search">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="6.5"></circle>
-                <path d="m16 16 4.5 4.5"></path>
-              </svg>
-              Search
-            </button>
-          </form>
-
-          <div class="hero-proof">
-            <div class="avatars" aria-hidden="true">
-              <span>J</span><span>M</span><span>A</span>
-            </div>
-            <p><strong>Local expertise.</strong> Personal guidance from search to closing.</p>
-          </div>
-        </div>
-
-        <aside class="market-card">
-          <span class="live-dot"></span>
-          <p>NEW THIS WEEK</p>
-          <strong>12 opportunities</strong>
-          <a href="#properties">View the latest <span>↗</span></a>
-        </aside>
-      </section>
-
-      <section class="trust-strip" aria-label="ProCity services">
-        <span>VIP PROJECT ACCESS</span>
-        <i></i>
-        <span>BUILDER INCENTIVES</span>
-        <i></i>
-        <span>GTA MARKET EXPERTS</span>
-        <i></i>
-        <span>END-TO-END GUIDANCE</span>
-      </section>
-
-      <section class="directory section" id="properties">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">CURATED OPPORTUNITIES</p>
-            <h2>Projects worth knowing.</h2>
-          </div>
-          <p>
-            Explore a curated directory of new condos and townhomes across
-            Toronto and the Greater Toronto Area.
-          </p>
-        </div>
-
-        <div class="map-search-panel">
-          <div>
-            <span class="map-search-label">SEARCH THE MAP</span>
-            <div id="place-autocomplete" class="place-autocomplete">
-              <input
-                id="map-location-fallback"
-                type="search"
-                placeholder="Search an address or neighbourhood"
-                aria-label="Search an address or neighbourhood"
-              >
-            </div>
-          </div>
-          <button class="map-action" id="use-location" type="button">Use my location</button>
-          <button class="map-action" id="search-this-area" type="button" disabled>Search this map area</button>
-        </div>
-
-        <div class="directory-toolbar">
-          <div class="filter-row" id="city-filters" role="group" aria-label="Filter by city">
-            <button class="filter-chip active" type="button" data-city="all">All projects</button>
-            <button class="filter-chip" type="button" data-city="Toronto">Toronto</button>
-            <button class="filter-chip" type="button" data-city="Vaughan">Vaughan</button>
-            <button class="filter-chip" type="button" data-city="Markham">Markham</button>
-            <button class="filter-chip" type="button" data-city="Richmond Hill">Richmond Hill</button>
-          </div>
-          <label class="sort-control">
-            Sort
-            <select id="sort-projects">
-              <option value="featured">Featured</option>
-              <option value="price-low">Price: low to high</option>
-              <option value="occupancy">Occupancy</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="directory-layout">
-          <div class="directory-list">
-            <div class="results-meta">
-              <p><strong id="result-count">0</strong> projects found</p>
-              <button id="clear-filters" type="button">Reset filters</button>
-            </div>
-
-            <div class="property-grid" id="property-grid" aria-live="polite"></div>
-
-            <div class="empty-state" id="empty-state" hidden>
-              <strong>No projects match your search.</strong>
-              <p>Try another city, project name, property type, or map area.</p>
-              <button class="button button-dark" type="button" id="empty-reset">View all projects</button>
-            </div>
-          </div>
-          <aside class="map-shell" aria-label="Project map">
-            <div class="map-status" id="map-status">
-              <strong>Loading GTA project map</strong>
-              <span>Project locations will appear here in a moment.</span>
-            </div>
-            <div id="project-map"></div>
-            <button class="map-reset" id="reset-map" type="button" hidden>Show all GTA projects</button>
-          </aside>
-        </div>
-      </section>
-
-      <section class="area-section section" id="areas">
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">EXPLORE BY LOCATION</p>
-            <h2>Where the GTA is growing.</h2>
-          </div>
-          <a class="text-link" href="#properties">View all areas <span>↗</span></a>
-        </div>
-        <div class="area-grid">
-          <article class="area-card area-large" data-city-link="Toronto">
-            <img
-              src="https://images.unsplash.com/photo-1517090504586-fde19ea6066f?auto=format&fit=crop&w=1600&q=85"
-              alt="Toronto skyline"
-            >
-            <div><span>21 PROJECTS</span><h3>Toronto</h3><p>City living, redefined.</p></div>
-          </article>
-          <article class="area-card" data-city-link="Vaughan">
-            <img
-              src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=85"
-              alt="Modern towers"
-            >
-            <div><span>9 PROJECTS</span><h3>Vaughan</h3><p>A new downtown rises.</p></div>
-          </article>
-          <article class="area-card" data-city-link="Markham">
-            <img
-              src="https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=85"
-              alt="Modern homes"
-            >
-            <div><span>7 PROJECTS</span><h3>Markham</h3><p>Connected family living.</p></div>
-          </article>
-          <article class="area-card area-wide" data-city-link="Richmond Hill">
-            <img
-              src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1600&q=85"
-              alt="Contemporary home interior"
-            >
-            <div><span>6 PROJECTS</span><h3>Richmond Hill</h3><p>Room to grow, close to everything.</p></div>
-          </article>
-        </div>
-      </section>
-
-      <section class="advantage section" id="why-procity">
-        <div class="advantage-copy">
-          <p class="eyebrow light">THE PROCITY ADVANTAGE</p>
-          <h2>Experience gets you<br>through the right door.</h2>
-          <p>
-            Buying pre-construction is about more than picking a floor plan.
-            Our team helps you compare value, understand the fine print, and
-            make a confident move.
-          </p>
-          <a class="button button-light" href="#contact">Work with our team</a>
-        </div>
-        <div class="advantage-grid">
-          <article>
-            <span>01</span>
-            <h3>Early access</h3>
-            <p>Priority information and launch opportunities from GTA builders.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Project insight</h3>
-            <p>Clear comparisons of location, product, timing, and long-term value.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Strong guidance</h3>
-            <p>Personal support through worksheets, agreements, upgrades, and closing.</p>
-          </article>
-          <article class="metric">
-            <strong>GTA</strong>
-            <p>Focused local market knowledge</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="insights section" id="insights">
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">MARKET INTELLIGENCE</p>
-            <h2>Know before you buy.</h2>
-          </div>
-          <a class="text-link" href="#contact">Get updates <span>↗</span></a>
-        </div>
-        <div class="insight-grid">
-          <article>
-            <p>BUYER GUIDE · 6 MIN</p>
-            <h3>How to compare a pre-construction opportunity</h3>
-            <a href="#contact">Read the guide <span>→</span></a>
-          </article>
-          <article>
-            <p>MARKET NOTE · GTA</p>
-            <h3>Five signals we watch before recommending a project</h3>
-            <a href="#contact">Read the insight <span>→</span></a>
-          </article>
-          <article>
-            <p>CLOSING GUIDE · 8 MIN</p>
-            <h3>Deposits, adjustments, occupancy, and HST explained</h3>
-            <a href="#contact">Read the guide <span>→</span></a>
-          </article>
-        </div>
-      </section>
-
-      <section class="contact-section" id="contact">
-        <div>
-          <p class="eyebrow light">START YOUR SEARCH</p>
-          <h2>Tell us what<br>you’re looking for.</h2>
-          <p>
-            Get a personalized shortlist and early access to new opportunities
-            that fit your goals.
-          </p>
-          <a href="tel:+16478479666">647&nbsp;847&nbsp;9666</a>
-        </div>
-        <form class="lead-form" id="lead-form">
-          <div class="form-row">
-            <label>First name<input type="text" name="firstName" required></label>
-            <label>Last name<input type="text" name="lastName" required></label>
-          </div>
-          <label>Email address<input type="email" name="email" required></label>
-          <label>Phone number<input type="tel" name="phone"></label>
-          <label>
-            I’m interested in
-            <select name="interest">
-              <option>Buying a pre-construction home</option>
-              <option>Investing in a new condo</option>
-              <option>Receiving new project updates</option>
-              <option>Selling or assigning a property</option>
-            </select>
-          </label>
-          <button class="button button-dark" type="submit">Request a consultation</button>
-          <small>By submitting, you agree to be contacted by ProCity Realty.</small>
-        </form>
-      </section>
-    </main>
-
-    <footer>
-      <a class="brand brand-footer" href="#top">
-        <span class="brand-logo">
-          <img
-            src="./procity-logo.png?v=20260727-3"
-            alt="ProCity"
-            width="1650"
-            height="488"
-          >
-        </span>
-      </a>
-      <p>Toronto &amp; GTA pre-construction real estate specialists.</p>
-      <div class="footer-links">
-        <a href="#properties">Projects</a>
-        <a href="#areas">Neighbourhoods</a>
-        <a href="#contact">Contact</a>
-        <a href="/admin/">Admin</a>
-      </div>
-      <div class="legal">
-        <span>© <span id="year"></span> ProCity Realty. All rights reserved.</span>
-        <span>GO WITH THE PRO.</span>
-      </div>
-    </footer>
-
-    <dialog class="project-dialog" id="project-dialog">
-      <button class="dialog-close" type="button" aria-label="Close project details">×</button>
-      <div id="dialog-content"></div>
-    </dialog>
-
-    <div class="toast" id="toast" role="status"></div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="./app.js"></script>
-  </body>
-</html>
+    </section>
+    <section class="advantage section" id="why-procity"><div class="advantage-copy"><p class="eyebrow">THE PROCITY ADVANTAGE</p><h2>Experience gets you through the right door.</h2><p>Compare location, product, timing and value with personal guidance from search to closing.</p><a class="button button-light" href="#contact">Work with our team</a></div>
+      <div class="advantage-grid"><article><span>01</span><h3>Early access</h3><p>Priority project information and launch opportunities.</p></article><article><span>02</span><h3>Project insight</h3><p>Clear comparisons and practical market context.</p></article><article><span>03</span><h3>Strong guidance</h3><p>Support through agreements, upgrades and closing.</p></article><article class="metric"><strong>5/5</strong><p>Verified public review</p></article></div>
+    </section>
+    <section class="contact-section" id="contact"><div><p class="eyebrow">START YOUR SEARCH</p><h2>Tell us what you’re looking for.</h2><p>Get a personalized shortlist and early access to new opportunities.</p><a href="tel:+16478479666">647 847 9666</a></div>
+      <form class="lead-form"><div class="form-row"><label>First name<input required></label><label>Last name<input required></label></div><label>Email<input type="email" required></label><label>Phone<input type="tel"></label><button class="button button-dark">Request a consultation</button></form></section>
+  </main>
+  <footer><a class="brand brand-footer" href="/"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity"></span></a><p>Toronto &amp; GTA pre-construction real estate specialists.</p><div class="footer-links"><a href="/projects/">Projects</a><a href="/map/">Map</a><a href="#areas">Cities</a><a href="#contact">Contact</a></div><div class="legal"><span>© 2026 ProCity. All rights reserved.</span><span>GO WITH THE PRO.</span></div></footer>
+  <script src="/site.js?v=20260728-1"></script>
+</body></html>
