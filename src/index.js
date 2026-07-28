@@ -159,6 +159,59 @@ function parseProjectSource(html) {
   };
 }
 
+function stripMarkdown(value = "") {
+  return value
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
+    .replace(/[*_`#>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function markdownSection(markdown, heading) {
+  const expression = new RegExp(
+    `^#{1,4}\\s+${heading}\\s*$([\\s\\S]*?)(?=^#{1,4}\\s+|$)`,
+    "im"
+  );
+  return markdown.match(expression)?.[1] || "";
+}
+
+function parseMarkdownPairs(markdown) {
+  const pairs = {};
+  for (const line of markdown.split("\n")) {
+    const text = stripMarkdown(line.replace(/^\s*[-*+]\s+/, ""));
+    const separator = text.indexOf(":");
+    if (separator > 0) {
+      const key = text.slice(0, separator).trim();
+      const value = text.slice(separator + 1).trim();
+      if (key && value && key.length < 80) pairs[key] = value;
+    }
+  }
+  return pairs;
+}
+
+function parseProjectMarkdown(markdown) {
+  const images = [...new Set(
+    [...markdown.matchAll(/!\[[^\]]*]\((https?:\/\/[^)\s]+)\)/g)]
+      .map((match) => normalizeProjectImage(match[1]))
+      .filter((url) => /wp-content\/uploads/i.test(url))
+      .filter((url) => !/logo|icon|avatar|agent|placeholder|loading/i.test(url))
+  )].slice(0, 40);
+  const propertyDetails = parseMarkdownPairs(markdownSection(markdown, "Property Details"));
+  const pricingFees = parseMarkdownPairs(markdownSection(markdown, "Pricing (?:&|&amp;) Fees"));
+  const depositStructure = stripMarkdown(
+    markdownSection(markdown, "Deposit Structure")
+  ).slice(0, 4000);
+  return { images, propertyDetails, pricingFees, depositStructure };
+}
+
+function hasProjectDetails(details) {
+  return details.images.length > 1
+    || Object.keys(details.propertyDetails).length > 0
+    || Object.keys(details.pricingFees).length > 0
+    || Boolean(details.depositStructure);
+}
+
 function sourceUrlForProject(row) {
   if (row.source_url) return row.source_url;
   const catalogIndex = Number(row.id) - CATALOG_ID_OFFSET;
@@ -189,12 +242,21 @@ async function enrichProject(database, row) {
     if (!response.ok) return row;
     const html = await response.text();
     if (html.length > 3_000_000) return row;
-    const details = parseProjectSource(html);
-    const hasDetails = details.images.length > 1
-      || Object.keys(details.propertyDetails).length
-      || Object.keys(details.pricingFees).length
-      || details.depositStructure;
-    if (!hasDetails) return { ...row, source_url: sourceUrl };
+    let details = parseProjectSource(html);
+    if (!hasProjectDetails(details)) {
+      const source = new URL(sourceUrl);
+      const readerUrl = `https://r.jina.ai/http://${source.host}${source.pathname}`;
+      const readerResponse = await fetch(readerUrl, {
+        headers: { accept: "text/plain" },
+        signal: AbortSignal.timeout(8000),
+        cf: { cacheEverything: true, cacheTtl: 86400 }
+      });
+      if (readerResponse.ok) {
+        const markdown = await readerResponse.text();
+        if (markdown.length <= 3_000_000) details = parseProjectMarkdown(markdown);
+      }
+    }
+    if (!hasProjectDetails(details)) return { ...row, source_url: sourceUrl };
     const images = details.images.length ? details.images : [row.image_url].filter(Boolean);
     await database.prepare(
       `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
