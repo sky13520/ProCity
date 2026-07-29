@@ -65,14 +65,14 @@ test("database rows are mapped to public project objects", () => {
     price: 650000,
     occupancy: "2029",
     badge: "VIP",
-    image_url: "/project-images/100/100001-1-example.webp",
+    image_url: "https://example.com/image.jpg",
     description: "Description",
     latitude: 43.8,
     longitude: -79.3,
     featured: 1,
     published: 1
   });
-  assert.equal(project.image, "/project-images/100/100001-1-example.webp");
+  assert.equal(project.image, "https://example.com/image.jpg");
   assert.equal(project.featured, true);
   assert.equal(project.priceLabel, "From $650K");
 });

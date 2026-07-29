@@ -1,0 +1,40 @@
+name: Rebuild ProCity Assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/rebuild-procity-assets.yml"
+      - "scripts/rebuild-project-assets.mjs"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebuild-procity-assets
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    if: ${{ !contains(github.event.head_commit.message, '[assets-ready]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Rebuild local catalog and images
+        run: node scripts/rebuild-project-assets.mjs
+      - name: Validate website
+        run: npm test && npm run check && npm run cf:check
+      - name: Commit self-hosted assets
+        run: |
+          git config user.name "ProCity Asset Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/project-data.json src/project-details.json public/project-images
+          git commit -m "Add self-hosted ProCity project assets [assets-ready]"
+          git push origin main
