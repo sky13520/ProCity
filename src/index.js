@@ -1,3 +1,4 @@
+import { EmailMessage } from "cloudflare:email";
 import { json, toProject } from "../functions/_lib/http.js";
 import { onRequestGet as getConfig } from "../functions/api/config.js";
 import { onRequestGet as getProjects } from "../functions/api/projects.js";
@@ -91,13 +92,19 @@ async function submitLead(request, env) {
   ].join("\n");
 
   try {
-    await env.EMAIL.send({
-      to: "info@procity.ca",
-      from: { email: "website@procity.ca", name: "ProCity Website" },
-      replyTo: email,
-      subject: project ? `ProCity lead: ${project}` : `ProCity website lead: ${name}`,
+    const subject = project ? `ProCity lead: ${project}` : `ProCity website lead: ${name}`;
+    const raw = [
+      "From: ProCity Website <website@procity.ca>",
+      "To: info@procity.ca",
+      `Reply-To: ${email}`,
+      `Subject: ${subject}`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      "",
       text
-    });
+    ].join("\r\n");
+    await env.EMAIL.send(new EmailMessage("website@procity.ca", "info@procity.ca", raw));
     return json({ ok: true });
   } catch (error) {
     console.error(JSON.stringify({
