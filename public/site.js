@@ -71,7 +71,7 @@ async function submitLeadForm(event) {
   } catch (error) {
     status.textContent = error instanceof Error
       ? error.message
-      : "We could not send your request. Please call 647 847 9666.";
+      : "We could not send your request. Please call 647 956 3666.";
   } finally {
     if (button) {
       button.disabled = false;
