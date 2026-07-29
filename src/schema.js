@@ -85,7 +85,7 @@ export async function initializeDatabase(database) {
 
 async function syncProjectDetails(database) {
   if (!PROJECT_DETAILS.length) return;
-  const source = "procity-project-details-v1";
+  const source = "procity-project-details-v2";
   await database.prepare(
     `CREATE TABLE IF NOT EXISTS content_import_state (
       source TEXT PRIMARY KEY,
@@ -100,7 +100,7 @@ async function syncProjectDetails(database) {
   let cursor = Number(state?.cursor || 0);
   if (Number(state?.total || 0) !== PROJECT_DETAILS.length) cursor = 0;
   if (cursor >= PROJECT_DETAILS.length) return;
-  const batch = PROJECT_DETAILS.slice(cursor, cursor + 25);
+  const batch = PROJECT_DETAILS.slice(cursor, cursor + 100);
   const statement = database.prepare(
     `UPDATE projects SET source_url = ?, images_json = ?, property_details_json = ?,
       pricing_fees_json = ?, deposit_structure = ?, amenities_json = ?,
