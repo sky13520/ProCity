@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
-import { parseProjectSource } from "../src/index.js";
+import { parseProjectSource } from "./project-source-parser.mjs";
 
 const detailsPath = new URL("../src/project-details.json", import.meta.url);
 const concurrency = Math.max(1, Math.min(12, Number(process.env.DETAIL_CONCURRENCY || 6)));
