@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/rebuild-procity-assets.yml"
       - "scripts/rebuild-project-assets.mjs"
+      - "scripts/fetch-all-project-details.mjs"
+      - "scripts/project-source-parser.mjs"
 
 permissions:
   contents: write
