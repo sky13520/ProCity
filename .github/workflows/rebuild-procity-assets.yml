@@ -32,18 +32,48 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm ci
-      - name: Rebuild local catalog and images
+      - name: Rebuild all gallery source batches
         id: sources
-        run: |
-          node scripts/fetch-all-project-details.mjs
-      - name: Commit gallery source checkpoint
-        if: steps.sources.outputs.complete != 'true'
         run: |
           git config user.name "ProCity Asset Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add src/project-image-sources.json project-detail-failures.json
-          git commit -m "Checkpoint ProCity gallery sources"
+          step_output="$GITHUB_OUTPUT"
+          for batch in $(seq 1 25); do
+            iteration_output=$(mktemp)
+            GITHUB_OUTPUT="$iteration_output" node scripts/fetch-all-project-details.mjs
+            cat "$iteration_output" >> "$step_output"
+            if grep -q '^complete=true      - name: Download local gallery images
+        if: steps.sources.outputs.complete == 'true'
+        run: |
+          node scripts/rebuild-project-assets.mjs
+      - name: Validate project assets
+        if: steps.sources.outputs.complete == 'true'
+        run: node scripts/verify-project-assets.mjs
+      - name: Run tests
+        if: steps.sources.outputs.complete == 'true'
+        run: npm test
+      - name: Check JavaScript syntax
+        if: steps.sources.outputs.complete == 'true'
+        run: npm run check
+      - name: Check Cloudflare build
+        if: steps.sources.outputs.complete == 'true'
+        run: npm run cf:check
+      - name: Commit self-hosted assets
+        if: steps.sources.outputs.complete == 'true'
+        run: |
+          git config user.name "ProCity Asset Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/project-data.json src/project-details.json src/project-image-sources.json public/project-images project-detail-failures.json
+          git commit -m "Add complete self-hosted ProCity galleries [assets-ready]"
           git push origin main
+ "$iteration_output"; then
+              echo "All gallery source batches completed."
+              break
+            fi
+            git add src/project-image-sources.json project-detail-failures.json
+            git commit -m "Checkpoint ProCity gallery sources (batch $batch)" || true
+            git push origin main
+          done
       - name: Download local gallery images
         if: steps.sources.outputs.complete == 'true'
         run: |
