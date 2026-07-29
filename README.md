@@ -57,7 +57,15 @@ Enable **Maps JavaScript API** and **Places API (New)** in Google Cloud. Add:
 Restrict the key to the production domain and the Maps JavaScript/Places APIs.
 Redeploy after saving the variable.
 
-### 4. Check runtime status
+### 4. Website lead email
+
+The homepage consultation form and every project package form post to
+`/api/leads`. The Worker sends each verified submission to
+`info@procity.ca` through the `EMAIL` send binding. The sender domain
+`procity.ca` must be onboarded to Cloudflare Email Service and
+`website@procity.ca` must remain an allowed sender.
+
+### 5. Check runtime status
 
 Open `/api/health`. It reports whether the database, admin authentication, and
 Google Maps are configured without exposing any secret values.
