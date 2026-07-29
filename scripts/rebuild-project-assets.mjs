@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 
 const repositoryRoot = new URL("../", import.meta.url);
 const catalogPath = new URL("../src/project-data.json", import.meta.url);
@@ -105,8 +106,22 @@ async function download(job) {
     await writeFile(path.join(outputDirectory.pathname, job.filename), Buffer.from(await response.arrayBuffer()));
     saved += 1;
   } catch {
-    job.local = "";
-    failed += 1;
+    try {
+      const response = await fetch(job.source, {
+        headers: { "user-agent": "Mozilla/5.0 ProCity Asset Importer" },
+        signal: AbortSignal.timeout(60000)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const converted = await sharp(Buffer.from(await response.arrayBuffer()))
+        .resize({ width: 1000, withoutEnlargement: true })
+        .webp({ quality: 68 })
+        .toBuffer();
+      await writeFile(path.join(outputDirectory.pathname, job.filename), converted);
+      saved += 1;
+    } catch {
+      job.local = "";
+      failed += 1;
+    }
   }
   if ((saved + failed + reused) % 250 === 0) console.log({ processed: saved + failed + reused, total: queue.length, saved, reused, failed });
 }
@@ -119,7 +134,7 @@ await Promise.all(Array.from({ length: concurrency }, worker));
 const resultByLocal = new Map(queue.map((job) => [`/project-images/${job.filename}`, job.local]));
 for (const project of catalog) project.image = resultByLocal.get(project.image) || "";
 for (const detail of details) detail.images = detail.images.map((image) =>
-  image.startsWith("/project-images/") ? image : resultByLocal.get(image) || ""
+  resultByLocal.has(image) ? resultByLocal.get(image) || "" : image
 ).filter(Boolean);
 await writeFile(catalogPath, `${JSON.stringify(catalog)}\n`);
 await writeFile(detailsPath, `${JSON.stringify(details)}\n`);
