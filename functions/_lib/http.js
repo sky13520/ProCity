@@ -117,6 +117,21 @@ export const PROJECT_COLUMNS = `
   image_url, description, latitude, longitude, featured, published
 `;
 
+const LEGACY_PLACEHOLDER = "/project-images/1-greenbriar-road-condos-cover-a7352d2a5804421e.webp";
+const PROCITY_PLACEHOLDER = "/project-images/procity-images-coming-soon-cover-7457757329861015.webp";
+
+function sanitizeLegacyBrand(value) {
+  if (Array.isArray(value)) return value.map(sanitizeLegacyBrand);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeLegacyBrand(item)]));
+  }
+  if (typeof value !== "string") return value;
+  if (value === LEGACY_PLACEHOLDER) return PROCITY_PLACEHOLDER;
+  return value
+    .replace(/my\s*condo\s*pro/gi, "ProCity")
+    .replace(/condonow/gi, "ProCity");
+}
+
 export function toProject(row) {
   const slug = String(row.title || "project")
     .normalize("NFKD")
@@ -127,24 +142,24 @@ export function toProject(row) {
     .slice(0, 72) || "project";
   return {
     id: row.id,
-    title: row.title,
+    title: sanitizeLegacyBrand(row.title),
     city: row.city,
     area: row.area,
     address: row.address,
     type: row.type,
-    builder: row.builder,
+    builder: sanitizeLegacyBrand(row.builder),
     price: row.price,
     priceLabel: row.price ? `From $${Math.round(row.price / 1000)}K` : "Contact for pricing",
     occupancy: row.occupancy,
-    badge: row.badge,
-    image: row.image_url,
-    images: parseStoredJson(row.images_json, []),
-    description: row.description,
-    propertyDetails: parseStoredJson(row.property_details_json, {}),
-    pricingFees: parseStoredJson(row.pricing_fees_json, {}),
-    depositStructure: row.deposit_structure || "",
-    amenities: parseStoredJson(row.amenities_json, []),
-    currentIncentives: row.current_incentives || "",
+    badge: sanitizeLegacyBrand(row.badge),
+    image: sanitizeLegacyBrand(row.image_url),
+    images: sanitizeLegacyBrand(parseStoredJson(row.images_json, [])),
+    description: sanitizeLegacyBrand(row.description),
+    propertyDetails: sanitizeLegacyBrand(parseStoredJson(row.property_details_json, {})),
+    pricingFees: sanitizeLegacyBrand(parseStoredJson(row.pricing_fees_json, {})),
+    depositStructure: sanitizeLegacyBrand(row.deposit_structure || ""),
+    amenities: sanitizeLegacyBrand(parseStoredJson(row.amenities_json, [])),
+    currentIncentives: sanitizeLegacyBrand(row.current_incentives || ""),
     latitude: row.latitude,
     longitude: row.longitude,
     featured: Boolean(row.featured),
