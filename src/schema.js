@@ -166,7 +166,7 @@ export async function syncProjectCatalog(database) {
     project.price,
     project.occupancy,
     project.badge,
-    project.image,
+    project.image || PROJECT_DETAILS[cursor + index]?.images?.[0] || "",
     project.description,
     project.latitude ?? 0,
     project.longitude ?? 0,
