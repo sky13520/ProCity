@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: rebuild-procity-assets
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   rebuild:
