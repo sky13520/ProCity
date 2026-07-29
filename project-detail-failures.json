@@ -2,10 +2,10 @@
   "catalogProjects": 3502,
   "sourceProjects": 3511,
   "matchedProjects": 3502,
-  "completedProjects": 200,
-  "completedThisRun": 0,
-  "remainingProjects": 3302,
-  "failedBatches": 20,
+  "completedProjects": 400,
+  "completedThisRun": 200,
+  "remainingProjects": 3102,
+  "failedBatches": 0,
   "unmatchedProjects": 0,
   "unmatchedSlugs": []
 }
