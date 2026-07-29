@@ -63,7 +63,7 @@ The homepage consultation form and every project package form post to
 `/api/leads`. The Worker sends each verified submission to
 `info@procity.ca` through the `EMAIL` send binding. The sender domain
 `procity.ca` must be onboarded to Cloudflare Email Service and
-`website@procity.ca` must remain an allowed sender. Production form build: `20260729-email-3`.
+`info@procity.ca` is the fixed sender and recipient. Production form build: `20260729-email-4`.
 
 ### 5. Check runtime status
 
