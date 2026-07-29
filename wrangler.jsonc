@@ -18,7 +18,7 @@
       "name": "EMAIL",
       "destination_address": "info@procity.ca",
       "allowed_sender_addresses": [
-        "website@procity.ca"
+        "info@procity.ca"
       ]
     }
   ],
