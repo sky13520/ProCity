@@ -244,18 +244,24 @@ async function renderProjectPage(request, env, id) {
     <meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(project.title)} | ProCity">
     <meta property="og:description" content="${escapeHtml(description.slice(0, 190))}"><meta property="og:url" content="${canonical}">
     <meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">
-    <link rel="stylesheet" href="/styles.css?v=20260728-2"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
+    <link rel="stylesheet" href="/styles.css?v=20260729-1"><script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>
   </head><body>${siteHeader()}<main>
     <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/projects/">Projects</a><span>›</span><span>${escapeHtml(project.title)}</span></nav>
     <section class="project-hero-detail">
-      <div class="project-hero-image">${projectImages.length ? `<img src="${escapeHtml(projectImages[0])}" alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}">` : `<div class="image-placeholder">PROCITY</div>`}</div>
+      <div class="project-hero-image">${projectImages.length ? `<button class="lightbox-trigger lightbox-hero-trigger" type="button" data-lightbox-index="0" data-lightbox-src="${escapeHtml(projectImages[0])}" data-lightbox-alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}"><img src="${escapeHtml(projectImages[0])}" alt="${escapeHtml(project.title)} in ${escapeHtml(project.city)}"><span>View gallery</span></button>` : `<div class="image-placeholder">PROCITY</div>`}</div>
       <div class="project-hero-copy"><p class="eyebrow">${escapeHtml(project.area)} · ${escapeHtml(project.city)}</p><h1>${escapeHtml(project.title)}</h1>
         <p class="project-lead">${escapeHtml(description)}</p><a class="button" href="#contact">Request pricing &amp; floor plans</a>
       </div>
     </section>
     ${projectImages.length > 1 ? `<section class="project-gallery" aria-label="${escapeHtml(project.title)} image gallery">${projectImages.slice(1).map((url, index) =>
-      `<figure><a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="${escapeHtml(project.title)} project image ${index + 2}" loading="lazy"></a></figure>`
+      `<figure><button class="lightbox-trigger" type="button" data-lightbox-index="${index + 1}" data-lightbox-src="${escapeHtml(url)}" data-lightbox-alt="${escapeHtml(project.title)} project image ${index + 2}"><img src="${escapeHtml(url)}" alt="${escapeHtml(project.title)} project image ${index + 2}" loading="lazy"></button></figure>`
     ).join("")}</section>` : ""}
+    ${projectImages.length ? `<div class="project-lightbox" data-lightbox hidden role="dialog" aria-modal="true" aria-label="${escapeHtml(project.title)} image viewer">
+      <button class="lightbox-close" type="button" data-lightbox-close aria-label="Close image viewer">×</button>
+      <button class="lightbox-nav lightbox-prev" type="button" data-lightbox-prev aria-label="Previous image">‹</button>
+      <figure><img data-lightbox-image src="" alt=""><figcaption data-lightbox-counter></figcaption></figure>
+      <button class="lightbox-nav lightbox-next" type="button" data-lightbox-next aria-label="Next image">›</button>
+    </div>` : ""}
     <section class="project-detail-grid section">
       <div><p class="eyebrow">PROJECT OVERVIEW</p><h2>Key project information</h2>
         <div class="detail-facts">
@@ -284,7 +290,7 @@ async function renderProjectPage(request, env, id) {
         <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
       </aside>
     </section>
-  </main>${siteFooter()}<script src="/site.js?v=20260728-3"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
+  </main>${siteFooter()}<script src="/site.js?v=20260729-1"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" }
   });
 }
