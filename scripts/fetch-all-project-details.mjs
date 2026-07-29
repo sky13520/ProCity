@@ -6,7 +6,7 @@ const cachePath = new URL("../src/project-image-sources.json", import.meta.url);
 const sourceApi = "https://mycondopro.ca/wp-json/wp/v2";
 const projectBatchLimit = Math.max(20, Number(process.env.PROJECT_BATCH_LIMIT || 200));
 const parentBatchSize = 10;
-const requestConcurrency = 4;
+const requestConcurrency = 1;
 
 const catalog = JSON.parse(execFileSync(
   "git",
@@ -36,7 +36,7 @@ async function setOutput(name, value) {
 
 async function fetchJson(url) {
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
     try {
       const response = await fetch(url, {
         headers: {
@@ -44,16 +44,21 @@ async function fetchJson(url) {
           "accept-language": "en-CA,en;q=0.9",
           "user-agent": "Mozilla/5.0 ProCity Asset Importer"
         },
-        signal: AbortSignal.timeout(20_000)
+        signal: AbortSignal.timeout(60_000)
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status}`);
+        error.retryAfter = Number(response.headers.get("retry-after") || 0);
+        throw error;
+      }
       return {
         data: await response.json(),
         pages: Math.max(1, Number(response.headers.get("x-wp-totalpages") || 1))
       };
     } catch (error) {
       lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+      const retryDelay = Math.max(Number(lastError?.retryAfter || 0) * 1000, attempt * 5000);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
     }
   }
   throw lastError;
@@ -143,11 +148,12 @@ await parallelMap(batches, async (batch) => {
       completedThisRun += 1;
     }
     await writeFile(cachePath, `${JSON.stringify(cache)}\n`);
+    await new Promise((resolve) => setTimeout(resolve, 750));
   } catch (error) {
     failedBatches += 1;
     console.error({ batch: batch.map((project) => project.sourceId), error: String(error?.message || error) });
   }
-}, 2);
+}, 1);
 
 const remainingProjects = matched.filter((project) => !cache.images[project.sourceId]?.complete).length;
 const unmatchedSlugs = catalog.filter((project) => !cache.sourcePosts[project.sourceId]).map((project) => project.sourceId);
