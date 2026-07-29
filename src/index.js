@@ -135,7 +135,7 @@ async function routeApi(request, env, ctx) {
     }
     return json({
       status: "ok",
-      buildVersion: "20260729-email-7",
+      buildVersion: "20260729-email-8",
       databaseReady,
       projectCount,
       adminConfigured: Boolean(env.ADMIN_API_TOKEN || env.ADMIN_EMAILS),
