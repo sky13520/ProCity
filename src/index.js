@@ -93,7 +93,7 @@ async function submitLead(request, env) {
   try {
     await env.EMAIL.send({
       to: "info@procity.ca",
-      from: { email: "website@procity.ca", name: "ProCity Website" },
+      from: { email: "info@procity.ca", name: "ProCity Website" },
       replyTo: email,
       subject: project ? `ProCity lead: ${project}` : `ProCity website lead: ${name}`,
       text
@@ -128,7 +128,7 @@ async function routeApi(request, env, ctx) {
     }
     return json({
       status: "ok",
-      buildVersion: "20260729-email-3",
+      buildVersion: "20260729-email-4",
       databaseReady,
       projectCount,
       adminConfigured: Boolean(env.ADMIN_API_TOKEN || env.ADMIN_EMAILS),
