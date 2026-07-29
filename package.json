@@ -7,5 +7,8 @@
     "test": "node --test",
     "check": "node --check public/site.js && node --check public/projects.js && node --check public/map.js && node --check public/admin/admin.js && node --check src/index.js && node --check src/schema.js && node --check functions/api/projects.js && node --check functions/api/admin/projects.js && node --check 'functions/api/admin/projects/[id].js'",
     "cf:check": "npx --yes wrangler@4.114.0 deploy --dry-run"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
   }
 }
