@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const repositoryRoot = new URL("../", import.meta.url);
@@ -50,11 +50,12 @@ function hash(value) {
 }
 
 const catalog = JSON.parse(historical("src/project-data.json"));
-const details = repairJson(historical("src/project-details.json"));
+const details = repairJson(await readFile(detailsPath, "utf8"));
 await mkdir(outputDirectory, { recursive: true });
 
 const jobs = new Map();
 function register(value, slug, role) {
+  if (/^\/project-images\/[a-z0-9][a-z0-9._-]*\.webp$/i.test(value || "")) return value;
   const source = sourceImage(value);
   if (!source) return "";
   if (!jobs.has(source)) {
@@ -85,6 +86,7 @@ const queue = [...jobs.values()];
 let cursor = 0;
 let saved = 0;
 let failed = 0;
+let reused = 0;
 
 async function download(job) {
   const proxy = new URL("https://wsrv.nl/");
@@ -92,6 +94,11 @@ async function download(job) {
   proxy.searchParams.set("w", "1000");
   proxy.searchParams.set("output", "webp");
   proxy.searchParams.set("q", "68");
+  try {
+    await access(path.join(outputDirectory.pathname, job.filename));
+    reused += 1;
+    return;
+  } catch {}
   try {
     const response = await fetch(proxy, { signal: AbortSignal.timeout(60000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -101,7 +108,7 @@ async function download(job) {
     job.local = "";
     failed += 1;
   }
-  if ((saved + failed) % 250 === 0) console.log({ processed: saved + failed, total: queue.length, saved, failed });
+  if ((saved + failed + reused) % 250 === 0) console.log({ processed: saved + failed + reused, total: queue.length, saved, reused, failed });
 }
 
 async function worker() {
@@ -111,7 +118,9 @@ await Promise.all(Array.from({ length: concurrency }, worker));
 
 const resultByLocal = new Map(queue.map((job) => [`/project-images/${job.filename}`, job.local]));
 for (const project of catalog) project.image = resultByLocal.get(project.image) || "";
-for (const detail of details) detail.images = detail.images.map((image) => resultByLocal.get(image) || "").filter(Boolean);
+for (const detail of details) detail.images = detail.images.map((image) =>
+  image.startsWith("/project-images/") ? image : resultByLocal.get(image) || ""
+).filter(Boolean);
 await writeFile(catalogPath, `${JSON.stringify(catalog)}\n`);
 await writeFile(detailsPath, `${JSON.stringify(details)}\n`);
-console.log({ projects: catalog.length, details: details.length, requested: queue.length, saved, failed });
+console.log({ projects: catalog.length, details: details.length, requested: queue.length, saved, reused, failed });
