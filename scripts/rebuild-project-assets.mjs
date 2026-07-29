@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
@@ -56,7 +57,9 @@ await mkdir(outputDirectory, { recursive: true });
 
 const jobs = new Map();
 function register(value, slug, role) {
-  if (/^\/project-images\/[a-z0-9][a-z0-9._-]*\.webp$/i.test(value || "")) return value;
+  if (/^\/project-images\/[a-z0-9][a-z0-9._-]*\.webp$/i.test(value || "")) {
+    return existsSync(path.join(outputDirectory.pathname, path.basename(value))) ? value : "";
+  }
   const source = sourceImage(value);
   if (!source) return "";
   if (!jobs.has(source)) {

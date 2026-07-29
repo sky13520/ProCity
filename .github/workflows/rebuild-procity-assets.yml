@@ -21,7 +21,7 @@ jobs:
   rebuild:
     if: ${{ !contains(github.event.head_commit.message, '[assets-ready]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,8 +35,14 @@ jobs:
         run: |
           node scripts/fetch-all-project-details.mjs
           node scripts/rebuild-project-assets.mjs
-      - name: Validate website
-        run: node scripts/verify-project-assets.mjs && npm test && npm run check && npm run cf:check
+      - name: Validate project assets
+        run: node scripts/verify-project-assets.mjs
+      - name: Run tests
+        run: npm test
+      - name: Check JavaScript syntax
+        run: npm run check
+      - name: Check Cloudflare build
+        run: npm run cf:check
       - name: Commit self-hosted assets
         run: |
           git config user.name "ProCity Asset Bot"
