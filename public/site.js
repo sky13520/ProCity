@@ -33,9 +33,56 @@ async function loadFeatured() {
   }
 }
 
-document.querySelectorAll(".lead-form").forEach((form) => form.addEventListener("submit", (event) => {
-  event.preventDefault(); alert("Thank you. ProCity will contact you shortly."); form.reset();
-}));
+async function submitLeadForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"], button:not([type])');
+  let status = form.querySelector(".form-status");
+  if (!status) {
+    status = document.createElement("p");
+    status.className = "form-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    form.append(status);
+  }
+
+  const originalLabel = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Sending…";
+  }
+  status.textContent = "";
+
+  try {
+    const fields = Object.fromEntries(new FormData(form).entries());
+    const response = await fetch("/api/leads", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...fields,
+        source: form.dataset.leadSource || window.location.pathname,
+        page: window.location.href
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "We could not send your request.");
+    form.reset();
+    status.textContent = "Thank you. ProCity will contact you shortly.";
+  } catch (error) {
+    status.textContent = error instanceof Error
+      ? error.message
+      : "We could not send your request. Please call 647 847 9666.";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+  }
+}
+
+document.querySelectorAll(".lead-form, .compact-lead").forEach((form) => {
+  form.addEventListener("submit", submitLeadForm);
+});
 
 document.querySelectorAll(".menu-button").forEach((button) => {
   button.addEventListener("click", () => {
