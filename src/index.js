@@ -33,9 +33,87 @@ async function apiContext(request, env, ctx, params = {}) {
   };
 }
 
+function leadText(value, maxLength = 300) {
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function validLeadEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
+}
+
+async function submitLead(request, env) {
+  if (request.method.toUpperCase() !== "POST") return methodNotAllowed(["POST"]);
+  if (!env.EMAIL) return json({ error: "Email service is temporarily unavailable. Please call 647 847 9666." }, 503);
+
+  const contentType = request.headers.get("content-type") || "";
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (!contentType.includes("application/json") || contentLength > 8192) {
+    return json({ error: "Invalid form submission." }, 400);
+  }
+
+  const origin = request.headers.get("origin");
+  if (origin) {
+    let hostname = "";
+    try { hostname = new URL(origin).hostname.toLowerCase(); } catch {}
+    if (!["procity.ca", "www.procity.ca", "localhost", "127.0.0.1"].includes(hostname)) {
+      return json({ error: "Invalid form origin." }, 403);
+    }
+  }
+
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "Invalid form submission." }, 400); }
+  if (leadText(input.website, 80)) return json({ ok: true });
+
+  const firstName = leadText(input.firstName, 80);
+  const lastName = leadText(input.lastName, 80);
+  const name = leadText(input.name, 160) || [firstName, lastName].filter(Boolean).join(" ");
+  const email = leadText(input.email, 254).toLowerCase();
+  const phone = leadText(input.phone, 50);
+  const project = leadText(input.project, 180);
+  const source = leadText(input.source, 180) || "Website";
+  const page = leadText(input.page, 500);
+
+  if (!name || !validLeadEmail(email)) {
+    return json({ error: "Please enter your name and a valid email address." }, 400);
+  }
+
+  const text = [
+    "New ProCity website inquiry",
+    "",
+    `Name: ${name}`,
+    `Email: ${email}`,
+    `Phone: ${phone || "Not provided"}`,
+    `Project: ${project || "General inquiry"}`,
+    `Source: ${source}`,
+    `Page: ${page || "Not provided"}`,
+    "",
+    `Submitted: ${new Date().toISOString()}`
+  ].join("\n");
+
+  try {
+    await env.EMAIL.send({
+      to: "info@procity.ca",
+      from: { email: "website@procity.ca", name: "ProCity Website" },
+      replyTo: email,
+      subject: project ? `ProCity lead: ${project}` : `ProCity website lead: ${name}`,
+      text
+    });
+    return json({ ok: true });
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: "Lead email failed",
+      code: error?.code || "UNKNOWN",
+      error: error instanceof Error ? error.message : String(error)
+    }));
+    return json({ error: "We could not send your request. Please call 647 847 9666." }, 503);
+  }
+}
+
 async function routeApi(request, env, ctx) {
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
+
+  if (url.pathname === "/api/leads") return submitLead(request, env);
 
   if (url.pathname === "/api/health") {
     let databaseReady = false;
@@ -53,7 +131,8 @@ async function routeApi(request, env, ctx) {
       databaseReady,
       projectCount,
       adminConfigured: Boolean(env.ADMIN_API_TOKEN || env.ADMIN_EMAILS),
-      mapsConfigured: Boolean(env.GOOGLE_MAPS_API_KEY)
+      mapsConfigured: Boolean(env.GOOGLE_MAPS_API_KEY),
+      emailConfigured: Boolean(env.EMAIL)
     });
   }
 
@@ -240,7 +319,7 @@ async function renderProjectPage(request, env, id) {
     <title>${escapeHtml(project.title)} in ${escapeHtml(project.city)} | Pricing & Floor Plans | ProCity</title>
     <meta name="description" content="${escapeHtml(description.slice(0, 158))}">
     <meta name="keywords" content="${escapeHtml(keywords)}"><meta name="robots" content="index,follow,max-image-preview:large">
-    <link rel="canonical" href="${canonical}"><meta name="theme-color" content="#07c160">
+    <link rel="canonical" href="${canonical}"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><meta name="theme-color" content="#07c160">
     <meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(project.title)} | ProCity">
     <meta property="og:description" content="${escapeHtml(description.slice(0, 190))}"><meta property="og:url" content="${canonical}">
     <meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">
@@ -287,10 +366,10 @@ async function renderProjectPage(request, env, id) {
         </section>
       </div>
       <aside class="project-sidebar" id="contact"><p class="eyebrow">VIP INFORMATION</p><h2>Get the current package</h2><p>Ask for the latest prices, floor plans, incentives and availability.</p>
-        <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
+        <form class="compact-lead" data-lead-source="Project package request"><input type="hidden" name="project" value="${escapeHtml(project.title)}"><label>Name<input name="name" autocomplete="name" required></label><label>Email<input type="email" name="email" autocomplete="email" required></label><label>Phone<input type="tel" name="phone" autocomplete="tel"></label><label hidden>Website<input name="website" tabindex="-1" autocomplete="off"></label><button class="button button-dark" type="submit">Request details</button><p class="form-status" role="status" aria-live="polite"></p><small>Information is subject to change and should be independently verified.</small></form>
       </aside>
     </section>
-  </main>${siteFooter()}<script src="/site.js?v=20260729-1"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
+  </main>${siteFooter()}<script src="/site.js?v=20260729-2"></script></body></html>`, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" }
   });
 }
