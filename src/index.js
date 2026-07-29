@@ -284,7 +284,7 @@ async function renderProjectPage(request, env, id) {
         <form class="compact-lead"><label>Name<input name="name" required></label><label>Email<input type="email" name="email" required></label><label>Phone<input type="tel" name="phone"></label><button class="button button-dark" type="submit">Request details</button><small>Information is subject to change and should be independently verified.</small></form>
       </aside>
     </section>
-  </main>${siteFooter()}<script src="/site.js?v=20260728-2"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
+  </main>${siteFooter()}<script src="/site.js?v=20260728-3"></script><script>document.querySelector(".compact-lead")?.addEventListener("submit",e=>{e.preventDefault();alert("Thank you. ProCity will contact you shortly.");e.currentTarget.reset()})</script></body></html>`, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300, stale-while-revalidate=3600" }
   });
 }
