@@ -1,9 +1,18 @@
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
-const safeImage = (value) => /^https:\/\//i.test(value || "") ? value : "";
+const safeImage = (value) => {
+  const image = String(value || "").trim();
+  if (/^\/project-images\/[a-z0-9][a-z0-9._-]*\.webp$/i.test(image)) return image;
+  try {
+    const url = new URL(image);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+};
 const projectUrl = (project) => `/project/${encodeURIComponent(project.slug)}/`;
 
 function projectCard(project) {
-  const image = safeImage(project.image);
+  const image = safeImage(project.image) || "/procity-logo.png";
   return `<article class="property-card">
     <a href="${projectUrl(project)}" aria-label="View ${escapeHtml(project.title)}">
       <div class="property-image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(project.title)}" loading="lazy">` : '<div class="image-placeholder">PROCITY</div>'}<span class="property-badge">${escapeHtml(project.badge || "NOW REGISTERING")}</span></div>
