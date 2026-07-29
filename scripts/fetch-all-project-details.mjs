@@ -167,7 +167,7 @@ await writeFile(
   `${JSON.stringify({ ...summary, unmatchedSlugs }, null, 2)}\n`
 );
 await setOutput("complete", remainingProjects === 0 ? "true" : "false");
-await setOutput("remaining", remaingProjects);
+await setOutput("remaining", remainingProjects);
 console.log(summary);
 
 if (remainingProjects > 0) process.exit(0);
