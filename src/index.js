@@ -112,7 +112,7 @@ async function submitLead(request, env) {
       code: error?.code || "UNKNOWN",
       error: error instanceof Error ? error.message : String(error)
     }));
-    return json({ error: "We could not send your request. Please call 647 847 9666.", emailCode: error?.code || "UNKNOWN" }, 503);
+    return json({ error: "We could not send your request. Please call 647 847 9666." }, 503);
   }
 }
 
@@ -135,7 +135,7 @@ async function routeApi(request, env, ctx) {
     }
     return json({
       status: "ok",
-      buildVersion: "20260729-email-6",
+      buildVersion: "20260729-email-7",
       databaseReady,
       projectCount,
       adminConfigured: Boolean(env.ADMIN_API_TOKEN || env.ADMIN_EMAILS),
