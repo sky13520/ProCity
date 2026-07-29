@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
-import { parseProjectSource } from "./project-source-parser.mjs";
+import { parseProjectMarkdown, parseProjectSource } from "./project-source-parser.mjs";
 
 const detailsPath = new URL("../src/project-details.json", import.meta.url);
 const concurrency = Math.max(1, Math.min(12, Number(process.env.DETAIL_CONCURRENCY || 6)));
@@ -55,7 +55,11 @@ async function fetchProject(project, index) {
   const id = 100000 + index;
   if (!project.sourceUrl) return;
   try {
-    const parsed = parseProjectSource(await fetchHtml(project.sourceUrl));
+    let parsed = parseProjectSource(await fetchHtml(project.sourceUrl));
+    if (!useful(parsed)) {
+      const proxyUrl = `https://r.jina.ai/http://${new URL(project.sourceUrl).host}${new URL(project.sourceUrl).pathname}`;
+      parsed = parseProjectMarkdown(await fetchHtml(proxyUrl));
+    }
     if (useful(parsed)) {
       detailsById.set(id, { id, ...parsed });
       fetched += 1;
