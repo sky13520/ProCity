@@ -3,9 +3,9 @@
   "sourceProjects": 3511,
   "matchedProjects": 3502,
   "completedProjects": 200,
-  "completedThisRun": 200,
+  "completedThisRun": 0,
   "remainingProjects": 3302,
-  "failedBatches": 0,
+  "failedBatches": 20,
   "unmatchedProjects": 0,
   "unmatchedSlugs": []
 }
