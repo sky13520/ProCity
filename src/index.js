@@ -44,7 +44,7 @@ function validLeadEmail(value) {
 
 async function submitLead(request, env) {
   if (request.method.toUpperCase() !== "POST") return methodNotAllowed(["POST"]);
-  if (!env.EMAIL) return json({ error: "Email service is temporarily unavailable. Please call 647 847 9666." }, 503);
+  if (!env.EMAIL) return json({ error: "Email service is temporarily unavailable. Please call 647 956 3666." }, 503);
 
   const contentType = request.headers.get("content-type") || "";
   const contentLength = Number(request.headers.get("content-length") || 0);
@@ -112,7 +112,7 @@ async function submitLead(request, env) {
       code: error?.code || "UNKNOWN",
       error: error instanceof Error ? error.message : String(error)
     }));
-    return json({ error: "We could not send your request. Please call 647 847 9666." }, 503);
+    return json({ error: "We could not send your request. Please call 647 956 3666." }, 503);
   }
 }
 
@@ -135,7 +135,7 @@ async function routeApi(request, env, ctx) {
     }
     return json({
       status: "ok",
-      buildVersion: "20260729-email-8",
+      buildVersion: "20260729-phone-1",
       databaseReady,
       projectCount,
       adminConfigured: Boolean(env.ADMIN_API_TOKEN || env.ADMIN_EMAILS),
@@ -210,14 +210,14 @@ function siteHeader() {
   return `<header class="site-header">
     <a class="brand" href="/" aria-label="ProCity home"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity" width="1650" height="488"></span></a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/projects/">Projects</a><a href="/map/">Map Search</a><a href="/#areas">Cities</a><a href="/#why-procity">Why ProCity</a></nav>
-    <div class="header-actions"><a class="phone-link" href="tel:+16478479666">647 847 9666</a><a class="button button-small" href="#contact">Get VIP Access</a><button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button></div>
+    <div class="header-actions"><a class="phone-link" href="tel:+16479563666">647 956 3666</a><a class="button button-small" href="#contact">Get VIP Access</a><button class="menu-button" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button></div>
   </header>`;
 }
 
 function siteFooter() {
   return `<footer><a class="brand brand-footer" href="/"><span class="brand-logo"><img src="/procity-logo.png" alt="ProCity"></span></a>
     <p>Toronto &amp; GTA pre-construction real estate specialists.</p>
-    <div class="footer-links"><a href="/projects/">Projects</a><a href="/map/">Map</a><a href="/#areas">Cities</a><a href="tel:+16478479666">Contact</a></div>
+    <div class="footer-links"><a href="/projects/">Projects</a><a href="/map/">Map</a><a href="/#areas">Cities</a><a href="tel:+16479563666">Contact</a></div>
     <div class="legal"><span>© ${new Date().getFullYear()} ProCity. All rights reserved.</span><span>GO WITH THE PRO.</span></div></footer>`;
 }
 
@@ -299,7 +299,7 @@ async function renderProjectPage(request, env, id) {
         "@id": "https://procity.ca/#organization",
         name: "ProCity",
         url: "https://procity.ca/",
-        telephone: "+1-647-847-9666",
+        telephone: "+1-647-956-3666",
         aggregateRating: {
           "@type": "AggregateRating",
           ratingValue,
@@ -374,7 +374,7 @@ async function renderProjectPage(request, env, id) {
         </section>
       </div>
       <aside class="project-sidebar" id="contact"><p class="eyebrow">VIP INFORMATION</p><h2>Get the current package</h2><p>Ask for the latest prices, floor plans, incentives and availability.</p>
-        <form class="compact-lead" data-lead-source="Project package request"><input type="hidden" name="project" value="${escapeHtml(project.title)}"><label>Name<input name="name" autocomplete="name" required></label><label>Email<input type="email" name="email" autocomplete="email" required></label><label>Phone<input type="tel" name="phone" autocomplete="tel"></label><label hidden>Website<input name="website" tabindex="-1" autocomplete="off"></label><button class="button button-dark" type="submit">Request details</button><p class="form-status" role="status" aria-live="polite"></p><small>Information is subject to change and should be independently verified.</small></form>
+        <form class="compact-lead" data-lead-source="Project package request"><input type="hidden" name="project" value="${escapeHtml(project.title)}"><label>Name<input name="name" autocomplete="name" required></label><label>Email<input type="email" name="email" autocomplete="email" required></label><label>Phone<input type="tel" name="phone" autocomplete="tel"></label><button class="button button-dark" type="submit">Request details</button><p class="form-status" role="status" aria-live="polite"></p><small>Information is subject to change and should be independently verified.</small></form>
       </aside>
     </section>
   </main>${siteFooter()}<script src="/site.js?v=20260729-2"></script></body></html>`, {
