@@ -85,7 +85,7 @@ export async function initializeDatabase(database) {
 
 async function syncProjectDetails(database) {
   if (!PROJECT_DETAILS.length) return;
-  const source = "procity-project-details-v2";
+  const source = "procity-project-details-v3";
   await database.prepare(
     `CREATE TABLE IF NOT EXISTS content_import_state (
       source TEXT PRIMARY KEY,
@@ -136,7 +136,7 @@ export async function syncProjectCatalog(database) {
     )`
   ).run();
 
-  const source = "procity-local-catalog-v2";
+  const source = "procity-local-catalog-v3";
   const state = await database.prepare(
     "SELECT cursor, total FROM catalog_import_state WHERE source = ?"
   ).bind(source).first();
