@@ -310,6 +310,26 @@ async function renderSitemap(env) {
   });
 }
 
+async function fetchProjectImage(request) {
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/project-images\/([a-z0-9][a-z0-9._-]*\.webp)$/i);
+  if (!match) return null;
+  const origin = `https://raw.githubusercontent.com/sky13520/ProCity/main/public/project-images/${encodeURIComponent(match[1])}`;
+  const upstream = await fetch(origin, {
+    headers: {
+      accept: request.headers.get("accept") || "image/webp",
+      "user-agent": "ProCity Image Proxy"
+    },
+    cf: { cacheEverything: true, cacheTtl: 31536000 }
+  });
+  if (!upstream.ok) return new Response("Image not found.", { status: upstream.status });
+  const headers = new Headers(upstream.headers);
+  headers.set("content-type", "image/webp");
+  headers.set("cache-control", "public, max-age=31536000, immutable");
+  headers.delete("set-cookie");
+  return new Response(upstream.body, { status: upstream.status, headers });
+}
+
 async function fetchStaticAsset(request, env) {
   const response = await env.ASSETS.fetch(request);
   if (response.status !== 404) return response;
@@ -328,6 +348,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      if (url.pathname.startsWith("/project-images/")) {
+        return await fetchProjectImage(request) || new Response("Image not found.", { status: 404 });
+      }
       if (url.pathname.startsWith("/api/")) {
         return await routeApi(request, env, ctx);
       }
