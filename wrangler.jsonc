@@ -13,6 +13,15 @@
       "head_sampling_rate": 1
     }
   },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "destination_address": "info@procity.ca",
+      "allowed_sender_addresses": [
+        "website@procity.ca"
+      ]
+    }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
