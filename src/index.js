@@ -14,6 +14,12 @@ import { initializeDatabase } from "./schema.js";
 import PROJECT_CATALOG from "./project-data.json" with { type: "json" };
 
 const CATALOG_ID_OFFSET = 100000;
+const SEO_CITIES = new Set([
+  "Toronto", "North York", "Etobicoke", "Scarborough", "Vaughan", "Markham",
+  "Richmond Hill", "Mississauga", "Brampton", "Oakville", "Burlington",
+  "Hamilton", "Pickering", "Whitby", "Oshawa", "Kitchener", "Waterloo",
+  "Guelph", "Barrie", "London", "Montreal"
+]);
 
 function methodNotAllowed(allowed) {
   return json(
@@ -229,11 +235,13 @@ async function renderProjectDirectory(request, env, citySlug = null) {
   const cityResult = await env.DB.prepare(
     "SELECT city, COUNT(*) AS project_count FROM projects WHERE published = 1 AND city <> '' GROUP BY city ORDER BY project_count DESC, city ASC"
   ).all();
-  const cities = cityResult.results.map((row) => ({
-    name: String(row.city),
-    slug: slugify(row.city, 60),
-    count: Number(row.project_count || 0)
-  }));
+  const cities = cityResult.results
+    .filter((row) => SEO_CITIES.has(String(row.city)))
+    .map((row) => ({
+      name: String(row.city),
+      slug: slugify(row.city, 60),
+      count: Number(row.project_count || 0)
+    }));
 
   if (citySlug) {
     const city = cities.find((item) => item.slug === citySlug);
@@ -537,9 +545,11 @@ async function renderSitemap(env) {
   const cityResult = await env.DB.prepare(
     "SELECT DISTINCT city FROM projects WHERE published = 1 AND city <> '' ORDER BY city"
   ).all();
-  const cityUrls = cityResult.results.map((row) =>
-    `<url><loc>https://procity.ca/city/${slugify(row.city, 60)}/</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`
-  );
+  const cityUrls = cityResult.results
+    .filter((row) => SEO_CITIES.has(String(row.city)))
+    .map((row) =>
+      `<url><loc>https://procity.ca/city/${slugify(row.city, 60)}/</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`
+    );
   const projectUrls = result.results.map((row) => {
     const slug = slugify(row.title);
     const lastmod = String(row.updated_at || "").slice(0, 10);
