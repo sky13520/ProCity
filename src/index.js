@@ -183,6 +183,147 @@ function projectIdFromPath(pathname) {
   return match ? Number(match[1]) : null;
 }
 
+function slugify(value, maxLength = 72) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, maxLength) || "project";
+}
+
+function cityFromPath(pathname) {
+  const match = pathname.match(/^\/city\/([a-z0-9-]+)\/?$/);
+  return match ? match[1] : null;
+}
+
+function directoryProjectCard(project) {
+  const image = project.image || "/procity-logo.png";
+  return `<article class="property-card">
+    <a href="/project/${escapeHtml(project.slug)}/" aria-label="View ${escapeHtml(project.title)}">
+      <div class="property-image"><img src="${escapeHtml(image)}" alt="${escapeHtml(project.title)}" loading="lazy"><span class="property-badge">${escapeHtml(project.badge || "NOW REGISTERING")}</span></div>
+      <div class="property-content"><p class="property-location">${escapeHtml(project.area)} · ${escapeHtml(project.city)}</p><h3 class="property-title">${escapeHtml(project.title)}</h3>
+      <p class="property-builder">${escapeHtml(project.builder || "Developer information available")}</p><div class="property-facts"><span>STARTING FROM<strong>${escapeHtml(project.priceLabel)}</strong></span><span>OCCUPANCY<strong>${escapeHtml(project.occupancy || "TBD")}</strong></span></div></div>
+    </a>
+  </article>`;
+}
+
+function directoryPageUrl(pathname, searchParams, page) {
+  const next = new URLSearchParams(searchParams);
+  next.delete("page");
+  if (page > 1) next.set("page", String(page));
+  const query = next.toString();
+  return `${pathname}${query ? `?${escapeHtml(query)}` : ""}`;
+}
+
+async function renderProjectDirectory(request, env, citySlug = null) {
+  if (!env.DB) return new Response("Project directory is unavailable.", { status: 503 });
+  await initializeDatabase(env.DB);
+  const url = new URL(request.url);
+  const requestedPage = Math.max(1, Math.min(10000, Number.parseInt(url.searchParams.get("page"), 10) || 1));
+  const limit = 24;
+  let selectedCity = "";
+  let cityNotFound = false;
+
+  const cityResult = await env.DB.prepare(
+    "SELECT city, COUNT(*) AS project_count FROM projects WHERE published = 1 AND city <> '' GROUP BY city ORDER BY project_count DESC, city ASC"
+  ).all();
+  const cities = cityResult.results.map((row) => ({
+    name: String(row.city),
+    slug: slugify(row.city, 60),
+    count: Number(row.project_count || 0)
+  }));
+
+  if (citySlug) {
+    const city = cities.find((item) => item.slug === citySlug);
+    if (city) selectedCity = city.name;
+    else cityNotFound = true;
+  } else {
+    selectedCity = String(url.searchParams.get("city") || "").trim().slice(0, 80);
+    if (selectedCity === "all") selectedCity = "";
+  }
+  if (cityNotFound) return new Response("City not found.", { status: 404 });
+
+  const conditions = ["published = 1"];
+  const bindings = [];
+  if (selectedCity) {
+    conditions.push("city = ?");
+    bindings.push(selectedCity);
+  }
+  const where = `WHERE ${conditions.join(" AND ")}`;
+  const countRow = await env.DB.prepare(`SELECT COUNT(*) AS total FROM projects ${where}`).bind(...bindings).first();
+  const total = Number(countRow?.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const page = Math.min(requestedPage, totalPages);
+  const result = await env.DB.prepare(
+    `SELECT * FROM projects ${where} ORDER BY featured DESC, updated_at DESC, id DESC LIMIT ? OFFSET ?`
+  ).bind(...bindings, limit, (page - 1) * limit).all();
+  const projects = result.results.map(toProject);
+
+  const pathname = citySlug ? `/city/${citySlug}/` : "/projects/";
+  const canonicalParams = new URLSearchParams();
+  if (!citySlug && selectedCity) canonicalParams.set("city", selectedCity);
+  if (page > 1) canonicalParams.set("page", String(page));
+  const canonicalQuery = canonicalParams.toString();
+  const canonical = `https://procity.ca${pathname}${canonicalQuery ? `?${canonicalQuery}` : ""}`;
+  const pageTitle = selectedCity
+    ? `Pre-Construction Projects in ${selectedCity} | ProCity`
+    : "Pre-Construction Projects in Toronto & GTA | ProCity";
+  const heading = selectedCity ? `New projects in ${selectedCity}.` : "Find your next opportunity.";
+  const description = selectedCity
+    ? `Browse ${total.toLocaleString("en-CA")} pre-construction condos, townhomes and new homes in ${selectedCity}. View project details, pricing and floor plans with ProCity.`
+    : "Search and compare pre-construction condos, townhomes and new homes in Toronto and cities across the GTA.";
+  const paginationParams = new URLSearchParams();
+  if (!citySlug && selectedCity) paginationParams.set("city", selectedCity);
+  const previous = page > 1 ? directoryPageUrl(pathname, paginationParams, page - 1) : "";
+  const next = page < totalPages ? directoryPageUrl(pathname, paginationParams, page + 1) : "";
+  const cityLinks = cities.map((city) =>
+    `<a href="/city/${escapeHtml(city.slug)}/">${escapeHtml(city.name)} <span>${city.count.toLocaleString("en-CA")}</span></a>`
+  ).join("");
+
+  return new Response(`<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${escapeHtml(pageTitle)}</title><meta name="description" content="${escapeHtml(description)}">
+    <meta name="robots" content="index,follow,max-image-preview:large"><link rel="canonical" href="${escapeHtml(canonical)}">
+    ${previous ? `<link rel="prev" href="https://procity.ca${previous}">` : ""}${next ? `<link rel="next" href="https://procity.ca${next}">` : ""}
+    <link rel="stylesheet" href="/styles.css?v=20260730-seo1"><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  </head><body>${siteHeader()}<main>
+    <section class="page-intro"><p class="eyebrow">PROJECT DIRECTORY</p><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(description)}</p></section>
+    <section class="directory-page section"><form class="directory-filters" id="project-filters" action="/projects/" method="get"><label>Search<input id="query" name="q" type="search" placeholder="Project, city, address or developer"></label><label>City<select id="city" name="city"><option value="all">All cities</option></select></label><label>Property type<select id="type" name="type"><option value="all">All types</option><option>Condo</option><option>Townhome</option><option>Detached</option><option>Semi-Detached</option></select></label><label>Sort<select id="sort" name="sort"><option value="featured">Featured</option><option value="price">Price: low to high</option><option value="occupancy">Occupancy</option><option value="newest">Recently updated</option></select></label><button class="button" type="submit">Search</button></form>
+      <div class="results-bar"><p><strong id="result-count">${total.toLocaleString("en-CA")}</strong> projects</p><a href="/map/">View on map ↗</a></div>
+      <div class="property-grid list-grid" id="project-grid">${projects.length ? projects.map(directoryProjectCard).join("") : "<p>No matching projects were found.</p>"}</div>
+      <nav class="project-pagination" id="pagination" aria-label="Project pages">${previous ? `<a class="pagination-link" rel="prev" href="${previous}">Previous</a>` : ""}<span>Page ${page.toLocaleString("en-CA")} of ${totalPages.toLocaleString("en-CA")}</span>${next ? `<a class="pagination-link" rel="next" href="${next}">Next</a>` : ""}</nav>
+    </section>
+    <section class="city-footer"><div><p class="eyebrow">BROWSE BY CITY</p><h2>Explore projects by city</h2></div><div class="city-link-grid">${cityLinks}</div></section>
+  </main>${siteFooter()}<script src="/site.js?v=20260729-2"></script><script src="/projects.js?v=20260730-seo1"></script></body></html>`, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=300, stale-while-revalidate=3600"
+    }
+  });
+}
+
+async function renderHomePage(request, env) {
+  const asset = await fetchStaticAsset(request, env);
+  if (!env.DB || asset.status !== 200) return asset;
+  await initializeDatabase(env.DB);
+  const result = await env.DB.prepare(
+    "SELECT * FROM projects WHERE published = 1 AND featured = 1 ORDER BY updated_at DESC, id DESC LIMIT 8"
+  ).all();
+  const projects = result.results.map(toProject);
+  if (!projects.length) return asset;
+  const html = (await asset.text()).replace(
+    '<div class="property-grid featured-grid" id="featured-projects"><p>Loading featured projects…</p></div>',
+    `<div class="property-grid featured-grid" id="featured-projects">${projects.map(directoryProjectCard).join("")}</div>`
+  );
+  const headers = new Headers(asset.headers);
+  headers.set("content-type", "text/html; charset=utf-8");
+  headers.set("cache-control", "public, max-age=300, stale-while-revalidate=3600");
+  headers.delete("content-length");
+  headers.delete("etag");
+  return new Response(html, { status: asset.status, headers });
+}
+
 async function enrichProject(_database, row) {
   return row;
 }
@@ -393,12 +534,18 @@ async function renderSitemap(env) {
     ["https://procity.ca/projects/", "0.9"],
     ["https://procity.ca/map/", "0.8"]
   ].map(([loc, priority]) => `<url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority}</priority></url>`);
+  const cityResult = await env.DB.prepare(
+    "SELECT DISTINCT city FROM projects WHERE published = 1 AND city <> '' ORDER BY city"
+  ).all();
+  const cityUrls = cityResult.results.map((row) =>
+    `<url><loc>https://procity.ca/city/${slugify(row.city, 60)}/</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>`
+  );
   const projectUrls = result.results.map((row) => {
-    const slug = String(row.title || "project").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "project";
+    const slug = slugify(row.title);
     const lastmod = String(row.updated_at || "").slice(0, 10);
     return `<url><loc>https://procity.ca/project/${slug}-${row.id}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority></url>`;
   });
-  return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${baseUrls.join("")}${projectUrls.join("")}</urlset>`, {
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${baseUrls.join("")}${cityUrls.join("")}${projectUrls.join("")}</urlset>`, {
     headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" }
   });
 }
@@ -441,6 +588,10 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      if (url.hostname.toLowerCase() === "www.procity.ca") {
+        url.hostname = "procity.ca";
+        return Response.redirect(url.toString(), 301);
+      }
       if (url.pathname.startsWith("/project-images/")) {
         return await fetchProjectImage(request) || new Response("Image not found.", { status: 404 });
       }
@@ -448,6 +599,12 @@ export default {
         return await routeApi(request, env, ctx);
       }
       if (url.pathname === "/sitemap.xml") return await renderSitemap(env);
+      if (url.pathname === "/") return await renderHomePage(request, env);
+      if (url.pathname === "/projects" || url.pathname === "/projects/") {
+        return await renderProjectDirectory(request, env);
+      }
+      const citySlug = cityFromPath(url.pathname);
+      if (citySlug) return await renderProjectDirectory(request, env, citySlug);
       const projectId = projectIdFromPath(url.pathname);
       if (projectId) return await renderProjectPage(request, env, projectId);
       return await fetchStaticAsset(request, env);

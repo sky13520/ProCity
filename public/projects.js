@@ -1,6 +1,8 @@
 const params = new URLSearchParams(location.search);
-const state = { page: Math.max(1, Number(params.get("page")) || 1), q: params.get("q") || "", city: params.get("city") || "all", type: params.get("type") || "all", sort: params.get("sort") || "featured" };
+const cityPath = location.pathname.match(/^\/city\/([a-z0-9-]+)\/?$/);
+const cityFromSlug = (slug) => cities.find((city) => city.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") === slug) || "all";
 const cities = ["Toronto","North York","Etobicoke","Scarborough","Vaughan","Markham","Richmond Hill","Mississauga","Brampton","Oakville","Burlington","Hamilton","Pickering","Whitby","Oshawa","Kitchener","Waterloo","Guelph","Barrie","London","Montreal"];
+const state = { page: Math.max(1, Number(params.get("page")) || 1), q: params.get("q") || "", city: params.get("city") || (cityPath ? cityFromSlug(cityPath[1]) : "all"), type: params.get("type") || "all", sort: params.get("sort") || "featured" };
 const fields = { q: document.querySelector("#query"), city: document.querySelector("#city"), type: document.querySelector("#type"), sort: document.querySelector("#sort") };
 cities.forEach(city => fields.city.insertAdjacentHTML("beforeend", `<option>${city}</option>`));
 Object.entries(fields).forEach(([key, field]) => { field.value = state[key]; });
@@ -22,7 +24,7 @@ function renderPages(p) {
 }
 function updateUrl() {
   const next = new URLSearchParams(); if (state.q) next.set("q", state.q); if (state.city !== "all") next.set("city", state.city); if (state.type !== "all") next.set("type", state.type); if (state.sort !== "featured") next.set("sort", state.sort); if (state.page > 1) next.set("page", state.page);
-  history.replaceState(null, "", `${location.pathname}${next.size ? `?${next}` : ""}`);
+  history.replaceState(null, "", `/projects/${next.size ? `?${next}` : ""}`);
 }
 document.querySelector("#project-filters").addEventListener("submit", event => { event.preventDefault(); Object.keys(fields).forEach(key => state[key] = fields[key].value.trim()); state.page = 1; updateUrl(); load(); });
 document.querySelector("#pagination").addEventListener("click", event => { const button = event.target.closest("[data-page]"); if (!button || button.disabled) return; state.page = Number(button.dataset.page); updateUrl(); load(); scrollTo({ top: 120, behavior: "smooth" }); });

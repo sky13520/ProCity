@@ -631,6 +631,14 @@ footer > p { color: rgba(255,255,255,.5); font-size: 12px; }
   padding: 0.75rem 1.2rem;
 }
 
+.project-pagination .pagination-link {
+  background: var(--green);
+  border-radius: 999px;
+  color: white;
+  font-weight: 700;
+  padding: 0.75rem 1.2rem;
+}
+
 .project-pagination button:disabled {
   cursor: default;
   opacity: 0.4;
